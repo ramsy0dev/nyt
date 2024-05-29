@@ -16,6 +16,8 @@ rich = "^13.7.1"
 sqlalchemy = "^2.0.30"
 pytube = { path = "nyt/lib/pytube", develop = true}
 notify-py = "^0.3.42"
+yt-dlp = "^2024.5.27"
+ytagegatebypass = {git = "https://github.com/pukkandan/yt-dlp-YTAgeGateBypass"}
 
 [tool.poetry.plugins."console_scripts"]
 nyt = "nyt:cli.run"
