@@ -26,4 +26,4 @@ nyt = "nyt:cli.run"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-include = ["*.png", "*.png"]
+include = ["*.png", "*.zip"]
