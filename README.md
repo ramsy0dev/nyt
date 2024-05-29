@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/nyt-high-resolution-logo.png" width=300 height=300 />
+<img src="assets/nyt-high-resolution-logo.png" width=600 />
 
 **nyt** is short for **No YouTube**
 
