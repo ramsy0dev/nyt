@@ -26,8 +26,30 @@ If one thing **YouTube** is really good, it will be video recommendations system
 
 # Install
 
+You can install nyt using `pip`:
+
 ``` bash
 pip install git+https://github.com/ramsy0dev/nyt.git
+```
+
+You will also need `ffmpeg` for video and audio processing, for windows:
+
+``` bash
+winget install ffmpeg
+```
+
+for Linux you can use your package manager:
+
+* ### Pacman:
+
+``` bash
+sudo pacman -S ffmpeg
+```
+
+* ### Debian based distros:
+
+``` bash
+sudo apt install ffmpeg
 ```
 
 # How to Use?
