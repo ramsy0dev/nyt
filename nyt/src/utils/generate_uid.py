@@ -20,4 +20,3 @@ def generate_uid(data: str) -> str:
     generated_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, hashed_username_salt)
 
     return str(generated_uuid)
-

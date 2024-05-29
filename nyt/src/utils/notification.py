@@ -34,7 +34,7 @@ def send_notification(summary_text: str, message: str) -> None:
         icon_path = script_dir_name + "\\" + constant.NYT_HIGH_RESOLUTION_LOGO.replace("/", "\\")
     else:
         icon_path = script_dir_name + "/" + constant.NYT_HIGH_RESOLUTION_LOGO
-    
+
     notify.icon = icon_path
 
     notify.send()

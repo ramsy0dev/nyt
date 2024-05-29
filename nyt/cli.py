@@ -5,6 +5,7 @@ import typer
 from rich import console
 
 from nyt import constant
+
 from nyt.src.nyt import NYT
 
 # Init cli

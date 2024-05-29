@@ -1,4 +1,6 @@
 import json
+import yt_dlp
+
 import nyt.lib.pytube.pytube as pytube
 
 from nyt import constant
@@ -15,6 +17,20 @@ from nyt.src.utils.notification import send_notification
 class NYT:
     youtube_base_route: str = "https://www.youtube.com"
     
+    # yt-dlp options
+    ydl_opts = {
+        "quiet": True,
+        "format": 'best',
+        "progress": False,
+        "postprocessors": [{
+            "key": "FFmpegVideoConvertor",
+            "preferedformat": "mp4"
+        }],
+        "plugins": [
+            "yt_dlp_plugins.age_gate_bypass.AgeGateBypassPlugin", # Plugin used to bypass age restriction
+        ],
+    }
+
     def __init__(self, database_path: str, debug_mode: bool, console) -> None:
         self.database_handler = DatabaseHandler(
             database_path=database_path
@@ -115,7 +131,11 @@ class NYT:
 
             for video in new_videos:
                 self.console.log(f"{constant.INFO} Downloading '{video.title}' by '{video.author}' to '{constant.VIDEOS_PREFIX_DIRECTORY}'")
-                self.download_video(video=video, prefix_directory=constant.VIDEOS_PREFIX_DIRECTORY)
+                self.download_video(
+                    video=video,
+                    prefix_directory=constant.VIDEOS_PREFIX_DIRECTORY
+                )
+            
 
                 if self.debug_mode:
                     self.console.log(f"{constant.DEBUG} Flaging '{video.video_id}' as watched from '{channel.channel_handle}'")
@@ -290,7 +310,7 @@ class NYT:
         Returns:
             None.
         """
-        video.streams.get_highest_resolution().download(
-            output_path=prefix_directory,
-            max_retries=7
-        )
+        self.ydl_opts["outtmpl"] = f"{prefix_directory}/%(uploader)s/%(title)s"
+        
+        with yt_dlp.YoutubeDL(self.ydl_opts) as yt:
+            yt.download([video.watch_url])
