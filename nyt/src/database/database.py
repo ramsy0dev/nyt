@@ -1,5 +1,4 @@
 import os
-import sys
 import sqlalchemy
 
 from pathlib import Path
