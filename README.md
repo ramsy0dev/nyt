@@ -52,10 +52,12 @@ if you want debug mode enabled:
 nyt watch --debug-mode
 ```
 
+After **nyt** finds that one of the tracked channels has uploaded a video it will send a notification and then it will download the video locally to `$HOME/.nyt/videos` (`$UserProfile\.nyt\videos` for Windows) so that you can watch it without having to open **YouTube**.
+
 # Directories used by nyt
 
 **nyt** creates a dir at `$HOME/.nyt` for linux, and `$UserProfile\\.nyt` for Windows.
-this directory is where it keeps the sqlite database and a subdir for downloading the **YouTube** videos.
+this directory is where it keeps the sqlite database and a subdir called `videos` for downloading the **YouTube** videos.
 
 # License
 
