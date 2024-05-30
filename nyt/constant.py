@@ -6,28 +6,40 @@ PACKAGE = "nyt"
 VERSION = "v0.1.2"
 GITHUB = "https://github.com/ramsy0dev/nyt"
 AUTHOR = "ramsy0dev"
-LICENSE = "MIT"
+LICENSE = "GPL-3.0"
 
 # Log levels
 INFO = "[[green]INFO[white]][reset]"
 DEBUG = "[[blue]DEBUG[white]][reset]"
 ERROR = "[[blue]ERROR[white]][reset]"
 
-# Assets
-NYT_HIGH_RESOLUTION_LOGO = "assets/nyt-high-resolution-logo.png"
-NYT_HIGH_RESOLUTION_LOGO_BLACK = "assets/nyt-high-resolution-logo-black.png"
-NYT_HIGH_RESOLUTION_LOGO_WHITE = "assets/nyt-high-resolution-logo-white.png"
-NYT_HIGH_RESOLUTION_LOGO_TRANSPARENT = "assets/nyt-high-resolution-logo-transparent.png"
+# Platform
+PLATFORM = sys.platform
 
-# Constants
-PLATFORM = sys.platform 
 if PLATFORM == "linux":
     HOME = os.getenv("HOME")
+    PATH_DASH = "/"
+
 if PLATFORM == "win32":
     HOME = os.getenv("UserProfile")
+    PATH_DASH = "\\"
 
-DATABASE_PATH = f"{HOME}/.nyt/nyt.db"
-VIDEOS_PREFIX_DIRECTORY = f"{HOME}/.nyt/videos"
+# nyt's root prefix path
+ROOT_PREFIX = f"{HOME}{PATH_DASH}.nyt"
+
+# Assets path
+ASSETS_PREFIX = f"{ROOT_PREFIX}{PATH_DASH}assets"
+
+NYT_HIGH_RESOLUTION_LOGO = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo.png"
+NYT_HIGH_RESOLUTION_LOGO_BLACK = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-black.png"
+NYT_HIGH_RESOLUTION_LOGO_WHITE = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-white.png"
+NYT_HIGH_RESOLUTION_LOGO_TRANSPARENT = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-transparent.png"
+
+# SQLite Database path
+DATABASE_PATH = f"{ROOT_PREFIX}{PATH_DASH}nyt.db"
+
+# Videos path
+VIDEOS_PREFIX_DIRECTORY = f"{ROOT_PREFIX}{PATH_DASH}videos"
 
 # Response codes
 CHANNEL_ALREADY_TRACKED = 1e0
