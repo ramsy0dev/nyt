@@ -3,7 +3,7 @@ import sys
 
 # Package info
 PACKAGE = "nyt"
-VERSION = "v0.1.1"
+VERSION = "v0.1.2"
 GITHUB = "https://github.com/ramsy0dev/nyt"
 AUTHOR = "ramsy0dev"
 LICENSE = "MIT"
