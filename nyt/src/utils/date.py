@@ -1,13 +1,13 @@
 import datetime
 
-def date_in_gmt(format: str | None = "%Y-%m-%d %H:%M:%S") -> datetime.datetime:
+def date_in_gmt() -> datetime.datetime:
     """
-    Returns the current date in GMT timezone
+    Returns the current date.
     
     Args:
-        format (str): The date format.
+        None.
     
     Returns:
-        str: The date in the given `format`.
+        datetime.datetime
     """
     return datetime.datetime.now()
