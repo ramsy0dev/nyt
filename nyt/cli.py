@@ -8,6 +8,13 @@ from nyt import constant
 
 from nyt.src.nyt import NYT
 
+# Utils
+from nyt.src.utils.assets import (
+    check_assets,
+    download_assets,
+    create_assets_prefix
+)
+
 # Init cli
 cli = typer.Typer()
 
@@ -84,4 +91,11 @@ def watch(
         time.sleep(delay*60)
 
 def run() -> None:
+    # Create prefix directories
+    create_assets_prefix()
+    
+    # Check if the nyt's logos are installed
+    if not check_assets():
+        download_assets()
+    
     cli()
