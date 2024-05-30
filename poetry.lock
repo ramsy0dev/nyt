@@ -579,11 +579,13 @@ description = "Python 3 library for downloading YouTube Videos."
 optional = false
 python-versions = ">=3.7"
 files = []
-develop = true
+develop = false
 
 [package.source]
-type = "directory"
-url = "nyt/lib/pytube"
+type = "git"
+url = "https://github.com/ramsy0dev/pytube"
+reference = "HEAD"
+resolved_reference = "fcaaf934a36fbdca4bdabd1cc101e23b11fa46eb"
 
 [[package]]
 name = "requests"
@@ -911,4 +913,4 @@ resolved_reference = "5cd308ca3a9c951c243c10656ee6a0a835d96ec9"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "af2b3d265b06c9fd5a796aa083336d72c8b7ca83e47d446884cde05a4715883d"
+content-hash = "2c65f7437d152276eed7c7b581590b18e1a01f7858df3261a937a37b4bb36d0c"
