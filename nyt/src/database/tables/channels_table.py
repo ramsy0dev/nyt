@@ -18,4 +18,4 @@ class Channels(Base):
     added_at                 =   Column(DATETIME, nullable=False)
 
     def __repr__(self):
-        return f"Channels(channel_uid={self.channel_uid!r}, channel_handle={self.channel_handle!r}, video_starting_point_id={self.video_starting_point_id!r}, watched_videos_uid={self.watched_videos_uid!r}, added_at={self.added_at!r}"
+        return f"Channels(channel_uid={self.channel_uid!r}, channel_handle={self.channel_handle!r}, video_starting_point_id={self.video_starting_point_id!r}, watched_videos_uid={self.watched_videos_uid!r}, added_at={self.added_at!r})"
