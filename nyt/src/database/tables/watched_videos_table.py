@@ -17,4 +17,4 @@ class WatchedVideos(Base):
     created_at               =   Column(DATETIME, nullable=False)
 
     def __repr__(self):
-        return f"WatchedVideos(watched_videos_uid={self.watched_videos_uid!r}, watched_videos={self.watched_videos!r}, updated_at={self.updated_at!r}, created_at={self.created_at!r}"
+        return f"WatchedVideos(watched_videos_uid={self.watched_videos_uid!r}, watched_videos={self.watched_videos!r}, updated_at={self.updated_at!r}, created_at={self.created_at!r})"
