@@ -18,13 +18,16 @@ from nyt.src.database.tables.channels_table import Channels
 from nyt.src.utils.notification import send_notification
 
 class NYT:
+    """
+    nyt base class
+    """
     youtube_base_route: str = "https://www.youtube.com"
 
     # yt-dlp options
     ydl_opts = {
         "quiet": True,
         "format": 'best',
-        "progress": False,
+        "progress": True,
         "postprocessors": [{
             "key": "FFmpegVideoConvertor",
             "preferedformat": "mp4"
@@ -313,7 +316,7 @@ class NYT:
         Returns:
             None.
         """
-        self.ydl_opts["outtmpl"] = f"{prefix_directory}/%(uploader)s/%(title)s"
+        self.ydl_opts["outtmpl"] = f"{prefix_directory}{constant.PATH_DASH}%(uploader)s{constant.PATH_DASH}%(title)s"
 
         with yt_dlp.YoutubeDL(self.ydl_opts) as yt:
             yt.download([video.watch_url])
