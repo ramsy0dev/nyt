@@ -18,6 +18,8 @@ notify-py = "^0.3.42"
 yt-dlp = "^2024.5.27"
 ytagegatebypass = {git = "https://github.com/pukkandan/yt-dlp-YTAgeGateBypass"}
 pytube = {git = "https://github.com/ramsy0dev/pytube"}
+fastapi = "^0.111.0"
+uvicorn = "^0.30.0"
 
 [tool.poetry.plugins."console_scripts"]
 nyt = "nyt:cli.run"
