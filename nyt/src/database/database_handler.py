@@ -7,12 +7,15 @@ from sqlalchemy import (
     delete
 )
 
+from nyt import constant
+
 # Database
 from nyt.src.database.database import Database
 from nyt.src.database.tables.declarative_base import Base
 
 # Tables
 from nyt.src.database.tables.channels_table import Channels
+from nyt.src.database.tables.videos_table import Videos
 from nyt.src.database.tables.watched_videos_table import WatchedVideos
 
 # Utils
@@ -21,8 +24,8 @@ from nyt.src.utils.generate_uid import generate_uid
 
 class DatabaseHandler:
     """ Database handler """
-    def __init__(self, database_path: str) -> None:
-        self.database = Database(database_path=database_path)
+    def __init__(self) -> None:
+        self.database = Database(database_path=constant.DATABASE_PATH)
         self.engine = self.database.engine()
         self.session = sessionmaker(bind=self.engine)
 
@@ -40,35 +43,24 @@ class DatabaseHandler:
         """
         Base.metadata.create_all(bind=self.engine)
     
-    def add_channel_to_channels(self, channel_handle: str, video_starting_point_id: str) -> None:
+    def add_channel_to_channels(self, channel: Channels) -> None:
         """
         Adds a channel to the channels table
 
         Args:
-            channel_handle (str): The channel's handle.
-            video_starting_point_id (str): The ID of the video that will be the starting point.
+            channel (Channels): A Channels table instance.
         
         Args:
             None.
         """
-        channel = Channels()
-
-        watched_videos_uid = generate_uid(data=channel_handle)
-        
-        channel.channel_uid = generate_uid(data=channel_handle)
-        channel.channel_handle = channel_handle
-        channel.video_starting_point_id = video_starting_point_id
-        channel.watched_videos_uid = watched_videos_uid
-        channel.added_at = date_in_gmt()
-
         with self.session() as session:
             session.add(channel)
 
+            self.create_watched_video_row(
+                watched_videos_uid=channel.watched_videos_uid
+            )
+            
             session.commit()
-        
-        self.create_watched_video_row(
-            watched_videos_uid=watched_videos_uid
-        )
 
     def delete_channel_row(self, channel_handle: str) -> None:
         """
@@ -122,7 +114,7 @@ class DatabaseHandler:
 
         with self.session() as session:
             stmt = select(Channels)
-            channels = session.execute(stmt).fetchall()
+            channels = [channel[0] for channel in session.execute(stmt).fetchall()]
         
         return channels
     
@@ -259,3 +251,79 @@ class DatabaseHandler:
             session.execute(stmt)
             session.commit()
     
+    def add_video_to_videos(self, video: Videos) -> None:
+        """
+        Adds a video table row instance into the videos table.
+
+        Args:
+            video (Videos): A Videos table row instance.
+        
+        Returns:
+            None.
+        """
+        videos = self.get_videos_list()
+
+        for _video in videos:
+            if video.video_id == _video.video_id:
+                return
+        
+        with self.session() as session:
+            session.add(video)
+            session.commit()
+    
+    def get_videos_list(self) -> list[Videos]:
+        """
+        fetch a list of videos row from the videos table.
+
+        Args:
+            None.
+
+        Returns:
+            list[Videos]: A list of Videos table row instances.
+        """
+        videos: list[Videos] = None
+
+        with self.session() as session:
+            stmt = select(Videos)
+            videos = [video[0] for video in session.execute(stmt)]
+        
+        return videos
+    
+    def get_video_from_videos(self, video_id: str) -> Videos:
+        """
+        fetch a video row from the videos table.
+
+        Args:
+            video_id (str): The video's id.
+
+        Returns:
+            Videos: A Videos row table instance that represents the video.
+        """
+        video: Videos = None
+
+        with self.session() as session:
+            stmt = select(Videos).where(
+                Videos.video_id == video_id
+            )
+            video = session.execute(stmt).fetchone()[0]
+        
+        return video
+
+    def update_videos_values(self, video_id: str, values: dict) -> None:
+        """
+        Update the values of a row in the videos table.
+
+        Args:
+            video_id (str): The video's id.
+            values (dict): The dict of values that you want to update.
+        
+        Returns:
+            None.
+        """
+        with self.session() as session:
+            stmt = update(Videos).where(
+                Videos.video_id == video_id
+            ).values(values)
+
+            session.execute(stmt)
+            session.commit()

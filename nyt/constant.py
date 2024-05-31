@@ -8,11 +8,6 @@ GITHUB = "https://github.com/ramsy0dev/nyt"
 AUTHOR = "ramsy0dev"
 LICENSE = "GPL-3.0"
 
-# Log levels
-INFO = "[[green]INFO[white]][reset]"
-DEBUG = "[[blue]DEBUG[white]][reset]"
-ERROR = "[[blue]ERROR[white]][reset]"
-
 # Platform
 PLATFORM = sys.platform
 
@@ -26,6 +21,9 @@ if PLATFORM == "win32":
 
 # nyt's root prefix path
 ROOT_PREFIX = f"{HOME}{PATH_DASH}.nyt"
+
+# API logs path
+API_LOG_PATH = f"{HOME}{PATH_DASH}nyt.log"
 
 # Assets path
 ASSETS_PREFIX = f"{ROOT_PREFIX}{PATH_DASH}assets"
@@ -44,3 +42,8 @@ VIDEOS_PREFIX_DIRECTORY = f"{ROOT_PREFIX}{PATH_DASH}videos"
 # Response codes
 CHANNEL_ALREADY_TRACKED = 1e0
 CHANNEL_NOT_TRACKED = 1e1
+
+# YouTube V3 api keys
+_api_keys = [
+    "AIzaSyDRVd48upuMgHohLPYlG3v363RfNJVzYmg"
+]

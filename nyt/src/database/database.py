@@ -38,8 +38,10 @@ class Database:
         Returns:
             None.
         """
-        if not os.path.exists(database_path):
+        if not os.path.exists(database_path.replace("nyt.db", "")):
             os.mkdir(database_path.replace("nyt.db", ""))
+        
+        if not os.path.exists(database_path):
             Path(database_path).touch()
 
     def database_uri(self) -> str:
