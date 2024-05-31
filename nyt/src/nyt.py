@@ -1,5 +1,11 @@
 import json
+import random
 import yt_dlp
+import requests
+
+from pathlib import Path
+from loguru import logger
+from datetime import datetime
 
 from pytube import (
     YouTube,
@@ -13,9 +19,13 @@ from nyt.src.database.database_handler import DatabaseHandler
 
 # Table
 from nyt.src.database.tables.channels_table import Channels
+from nyt.src.database.tables.videos_table import Videos
 
 # Utils
+from nyt.src.utils.date import date_in_gmt
+from nyt.src.utils.generate_uid import generate_uid
 from nyt.src.utils.notification import send_notification
+
 
 class NYT:
     """
@@ -37,12 +47,11 @@ class NYT:
         ],
     }
 
-    def __init__(self, database_path: str, debug_mode: bool, console) -> None:
-        self.database_handler = DatabaseHandler(
-            database_path=database_path
-        )
-        self.console = console
-        self.debug_mode = debug_mode
+    # Pair for each channel and the YouTube API Json response
+    channels_js_pair: dict[str, dict] = dict() 
+
+    def __init__(self) -> None:
+        self.database_handler = DatabaseHandler()
 
     def add_channel(self, channel_handle: str) -> None:
         """
@@ -59,9 +68,25 @@ class NYT:
 
         video_starting_point_id = self.get_channel_last_videos(channel_handle=channel_handle)[-1].video_id
 
+        channel_info = self.get_channel_info(channel_handle=channel_handle)
+
+        channel = Channels()
+
+        watched_videos_uid = generate_uid(data=channel_handle)
+        
+        channel.channel_uid = generate_uid(data=channel_handle)
+        channel.channel_handle = channel_handle
+        channel.video_starting_point_id = video_starting_point_id
+        channel.watched_videos_uid = watched_videos_uid
+
+        channel.channel_avatar_url_default = channel_info["avatar_urls"][0]
+        channel.channel_avatar_url_medium = channel_info["avatar_urls"][1]
+        channel.channel_avatar_url_high = channel_info["avatar_urls"][2]
+        
+        channel.added_at = date_in_gmt()
+
         self.database_handler.add_channel_to_channels(
-            channel_handle=channel_handle,
-            video_starting_point_id=video_starting_point_id
+            channel=channel
         )
 
     def remove_channel(self, channel_handle: str) -> None:
@@ -92,23 +117,21 @@ class NYT:
         """
         channels = self.get_channels()
 
-        self.console.log(f"{constant.INFO} Channels that are being tracked are: {', '.join([channel.channel_handle for channel in channels])}")
+        logger.info(f"Channels that are being tracked are: {', '.join([channel.channel_handle for channel in channels])}")
 
         for channel in channels:
-            self.console.log(f"{constant.INFO} Checking for new videos uploaded by '{channel.channel_handle}'")
+            logger.info(f"Checking for new videos uploaded by '{channel.channel_handle}'")
 
             video_starting_point_id = channel.video_starting_point_id
             video_starting_point_id_index = None
 
-            if self.debug_mode:
-                self.console.log(f"{constant.DEBUG} Fetching last 10 videos by '{channel.channel_handle}'")
+            logger.debug(f"Fetching last 10 videos by '{channel.channel_handle}'")
 
             channel_last_videos = self.get_channel_last_videos(
                 channel_handle=channel.channel_handle
             )
 
-            if self.debug_mode:
-                self.console.log(f"{constant.DEBUG} Found {len(channel_last_videos)} videos")
+            logger.debug(f"Found {len(channel_last_videos)} videos")
 
             for i in range(len(channel_last_videos)):
                 video = channel_last_videos[i]
@@ -120,12 +143,12 @@ class NYT:
 
             # Check if the starting video if the last uploaded video
             if len(channel_last_videos[video_starting_point_id_index:]) == 1:
-                self.console.log(f"{constant.INFO} No new videos found.")
+                logger.info(f"No new videos found.")
                 continue
 
             new_videos = channel_last_videos[video_starting_point_id_index+1:] # Exclude the video starting point
 
-            self.console.log(f"{constant.INFO} {len(new_videos)} new videos uploaded by '{channel.channel_handle}'")
+            logger.info(f"{len(new_videos)} new videos uploaded by '{channel.channel_handle}'")
 
             summary_text = "New YouTube Videos"
             message = f"{len(new_videos)} videos uploaded by '{channel.channel_handle}'"
@@ -136,25 +159,37 @@ class NYT:
             )
 
             for video in new_videos:
-                self.console.log(f"{constant.INFO} Downloading '{video.title}' by '{video.author}' to '{constant.VIDEOS_PREFIX_DIRECTORY}'")
-                self.download_video(
-                    video=video,
+                logger.info(f"Downloading '{video.title}' by '{video.author}' to '{constant.VIDEOS_PREFIX_DIRECTORY}'")
+                
+                output_path, publish_date, title, thumbnail_url, size = self.download_video(
+                    video_id=video.video_id,
                     prefix_directory=constant.VIDEOS_PREFIX_DIRECTORY
                 )
 
+                _video = Videos(
+                    video_id = video_id,
+                    channel_handle = channel.channel_handle,
+                    download_path = output_path,
+                    is_downloaded = True,
+                    is_watched = False,
+                    publish_date = publish_date,
+                    added_at = date_in_gmt(),
+                    thumbnail_url = thumbnail_url,
+                    title = title,
+                    size = size
+                )
 
-                if self.debug_mode:
-                    self.console.log(f"{constant.DEBUG} Flaging '{video.video_id}' as watched from '{channel.channel_handle}'")
+                self.database_handler.add_video_to_videos(video=_video)
+
+                logger.debug(f"Flaging '{video.video_id}' as watched from '{channel.channel_handle}'")
 
                 self.flag_video_watched(
                     video_id=video.video_id,
-                    watched_videos_uid=channel.watched_videos_uid,
-                    channel_handle=channel.channel_handle
+                    watched_videos_uid=channel.watched_videos_uid
                 )
 
             # Updating the video starting point to be the latest uploaded video
-            if self.debug_mode:
-                self.console.log(f"{constant.DEBUG} Updating the starting point to be '{video.video_id}', old starting point is '{channel.video_starting_point_id}'")
+            logger.debug(f"Updating the starting point to be '{video.video_id}', old starting point is '{channel.video_starting_point_id}'")
 
             self.database_handler.update_video_starting_point_id(
                 channel_handle=channel.channel_handle,
@@ -172,10 +207,47 @@ class NYT:
         Returns:
             list[Channels]: A list of Channels table instance of each channel.
         """
-        channels = [channel[0] for channel in self.database_handler.get_channels()]
+        channels = self.database_handler.get_channels()
 
         return channels
 
+    def get_channel_info(self, channel_handle: str) -> dict:
+        """
+        Fetches info about a channel.
+
+        Args:
+            channel_handle (str): The channel's handle.
+        
+        Returns:
+            dict: A dict containing the channel's info.
+        """
+        self._load_channel_js(channel_handle=channel_handle)
+
+        channel_info = {
+            "avatar_urls": self._get_channel_avatar_url(channel_handle=channel_handle)
+        }
+
+        return channel_info
+    
+    def _load_channel_js(self, channel_handle: str) -> None:
+        api_key = random.choice(constant._api_keys)
+
+        channel = Channel(f"{self.youtube_base_route}/@{channel_handle}")
+        
+        api_url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet&id={channel.channel_id}&key={api_key}"
+
+        res = requests.get(api_url)
+        res_json = res.json()
+        
+        self.channels_js_pair[channel_handle] = res_json
+
+    def _get_channel_avatar_url(self, channel_handle: str) -> tuple[str, str, str]:
+        avatar_url_default = self.channels_js_pair[channel_handle]['items'][0]['snippet']['thumbnails']['default']['url']
+        avatar_url_medium = self.channels_js_pair[channel_handle]['items'][0]['snippet']['thumbnails']['medium']['url']
+        avatar_url_high = self.channels_js_pair[channel_handle]['items'][0]['snippet']['thumbnails']['high']['url']
+
+        return (avatar_url_default, avatar_url_medium, avatar_url_high)
+    
     def check_channel_tracked(self, channel_handle: str) -> bool:
         """
         Checks if a channel is already in the track list.
@@ -187,7 +259,7 @@ class NYT:
             bool: True if yes, otherwise False.
         """
         channels = self.database_handler.get_channels()
-        channels_handle = [channel[0].channel_handle for channel in channels]
+        channels_handle = [channel.channel_handle for channel in channels]
 
         if channel_handle in channels_handle:
             return True
@@ -212,15 +284,14 @@ class NYT:
         else:
             video_ids = json.loads(watched_videos.watched_videos)["ids"]
 
-        if self.debug_mode:
-            self.console.log(f"{constant.DEBUG} Watched videos from '{channel_handle}' are {', '.join(video_ids)}")
+        logger.debug(f"Watched videos from '{channel_handle}' are {', '.join(video_ids)}")
 
         if video_id in video_ids:
             return True
 
         return False
 
-    def flag_video_watched(self, video_id: str, watched_videos_uid: str, channel_handle: str) -> None:
+    def flag_video_watched(self, video_id: str, watched_videos_uid: str) -> None:
         """
         Flags a video id as watched.
 
@@ -243,7 +314,7 @@ class NYT:
             watched_videos_uid=watched_videos_uid,
             watched_videos=watched_videos
         )
-
+    
     def get_channel_last_videos(self, channel_handle: str) -> list[YouTube]:
         """
         Returns the last 10 uploaded videos to a YouTube channel
@@ -270,8 +341,7 @@ class NYT:
             video = YouTube(video_url)
             videos.append(video)
 
-            if self.debug_mode:
-                self.console.log(f"{constant.DEBUG} {video_id = }, title = {video_content['videoRenderer']['title']['runs'][0]['text']}")
+            logger.debug(f"{video_id = }, title = \'{video_content['videoRenderer']['title']['runs'][0]['text']}\'")
 
         return videos[::-1]
 
@@ -306,17 +376,29 @@ class NYT:
 
     #     return ordered_videos[::-1]
 
-    def download_video(self, video: YouTube, prefix_directory: str) -> None:
+    def download_video(self, video_id: str, prefix_directory: str) -> tuple:
         """
         Download a YouTube video.
 
         Args:
+            video_id (str): The video's id.
             prefix_directory (str): The directory where to save the video.
 
         Returns:
-            None.
+            tuple: A tuple of data about the video.
         """
         self.ydl_opts["outtmpl"] = f"{prefix_directory}{constant.PATH_DASH}%(uploader)s{constant.PATH_DASH}%(title)s"
+        
+        video_url = f"{self.youtube_base_route}/watch?v={video_id}"
 
         with yt_dlp.YoutubeDL(self.ydl_opts) as yt:
-            yt.download([video.watch_url])
+            info_dict = yt.extract_info(video_url)
+
+            file_name = yt.prepare_filename(info_dict=info_dict)
+            title = info_dict.get("title", None)
+            thumbnail_url = info_dict.get("thumbnail", None)
+
+            size = Path(file_name).stat().st_size
+            publish_date = datetime.fromtimestamp(int(info_dict["upload_date"]))
+
+        return (file_name, publish_date, title, thumbnail_url, size)
