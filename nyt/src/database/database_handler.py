@@ -166,7 +166,7 @@ class DatabaseHandler:
 
         return watched_videos
     
-    def get_channel_row(self, channel_handle: str | None = None, channel_uid: str | None = None) -> None:
+    def get_channel_row(self, channel_handle: str | None = None, channel_uid: str | None = None) -> Channels:
         """
         Fetch a channel row.
 
