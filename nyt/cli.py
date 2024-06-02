@@ -47,7 +47,7 @@ def track(
     if rs_code == constant.CHANNEL_ALREADY_TRACKED:
         logger.info(f"Channel '{channel_handle}' is already being tracked")
         return
-    
+
     logger.info(f"Channel '{channel_handle}' added to be tracked")
 
 @cli.command()
@@ -57,14 +57,14 @@ def remove(
 ):
     """ Remove a channel from being tracked """
     nyt = NYT()
-    
+
     rs_code = nyt.remove_channel(
         channel_handle=channel_handle
     )
     if rs_code == constant.CHANNEL_NOT_TRACKED:
         logger.info(f"Channel '{channel_handle}' is not being tracked.")
         return
-    
+
     logger.info(f"Channel '{channel_handle}' removed from being tracked.")
 
 @cli.command()
@@ -80,15 +80,15 @@ def watch(
             nyt.watch()
         except KeyboardInterrupt or Exception:
             sys.exit(1)
-        
+
         logger.info(f"Sleeping for {(delay*60)/60} minutes")
 
         time.sleep(delay*60)
 
 @cli.command()
 def api(
-    host: str = typer.Option("127.0.0.1", "--host", help="The host for the API"),
-    port: int = typer.Option(8080, "--port", help="The port for the API"),
+    host: str = typer.Option("localhost", "--host", help="The host for the API"),
+    port: int = typer.Option(8888, "--port", help="The port for the API"),
     # debug_mode: bool = typer.Option(False, "--debug-mode", help="Enable debug mode")
 ):
     """ Serve the API """
@@ -130,12 +130,12 @@ def run() -> None:
             logging.getLogger(name).handlers = [INTERCEPT_HANDLER]
 
     logger.configure(handlers=[{"sink": sys.stdout}])
-    
+
     # Create prefix directories
     create_assets_prefix()
-    
+
     # Check if the nyt's logos are installed
     if not check_assets():
         download_assets()
-    
+
     cli()
