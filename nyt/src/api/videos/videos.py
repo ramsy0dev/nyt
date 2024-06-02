@@ -45,7 +45,7 @@ class VideosHandler:
             with open(file_path, "rb") as video_file:
                 video_file.seek(start)
                 while True:
-                    chunk = video_file.read(min(end - start + 1, 1024 * 1024))  # Read up to 1MB at a time
+                    chunk = video_file.read(min(end - start + 1, 1024 * 1024 * 7))  # Read up to 7MB at a time
                     if not chunk:
                         break
                     yield chunk
@@ -70,9 +70,12 @@ class VideosHandler:
         res = list()
 
         for video in videos:
+            channel_info = self.database_handler.get_channel_row(channel_handle=video.channel_handle)
             video_info = {
-                "title": video.title,
+                "video_id": video.video_id,
+                "video_title": video.title,
                 "channel_handle": video.channel_handle,
+                "channel_avatar_url_default": channel_info.channel_avatar_url_default,
                 "publish_date": video.publish_date,
                 "thumbnail_url": video.thumbnail_url,
                 "watch_url": f"/videos/{video.video_id}",
