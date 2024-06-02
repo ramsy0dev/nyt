@@ -47,3 +47,11 @@ CHANNEL_NOT_TRACKED = 1e1
 _api_keys = [
     "AIzaSyDRVd48upuMgHohLPYlG3v363RfNJVzYmg"
 ]
+
+# API
+API_HOST = "localhost"
+API_PORT = 8080
+
+# Web App
+WEBAPP_HOST = "localhost"
+WEBAPP_PORT = 8645
