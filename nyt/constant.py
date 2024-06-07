@@ -23,7 +23,7 @@ if PLATFORM == "win32":
 ROOT_PREFIX = f"{HOME}{PATH_DASH}.nyt"
 
 # API logs path
-API_LOG_PATH = f"{HOME}{PATH_DASH}nyt.log"
+API_LOG_PATH = f"{ROOT_PREFIX}{PATH_DASH}nyt.log"
 
 # Assets path
 ASSETS_PREFIX = f"{ROOT_PREFIX}{PATH_DASH}assets"
