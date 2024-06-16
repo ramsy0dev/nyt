@@ -22,7 +22,7 @@
 
 # Why?
 
-If one thing **YouTube** is really good, it will be video recommendations system that keep you hooked on **YouTube** for hours without realising the amount of time you just wasted.
+If one thing **YouTube** is really good at, it will be video recommendations system that keep you hooked on **YouTube** for hours without realising the amount of time you just wasted.
 
 # Install
 
