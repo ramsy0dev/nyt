@@ -16,7 +16,7 @@ class Classes:
     """
     def __init__(self) -> None:
         self.nyt = NYT()
-        self.database_handler = DatabaseHandler()
+        self.database_handler = DatabaseHandler(database_path=self.nyt.config.DATABASE_PATH)
         self.tracked_channels = TrackedChannels(nyt=self.nyt, database_handler=self.database_handler)
         self.videos_handler = VideosHandler(nyt=self.nyt, database_handler=self.database_handler)
 

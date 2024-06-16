@@ -110,6 +110,31 @@ async def get_videos_route(video_id: str, range_header: str = Header(None)):
             media_type="video/mp4"
         )
 
+@api.get(api_constant.ROOT_API_ROUTE + "/videos/{video_id}/status", status_code=200, response_class=ORJSONResponse)
+async def video_status_route(video_id: str):
+    """
+    Video status route
+    """
+    
+    if classes.database_handler.get_video_from_videos(video_id=video_id) is None:
+        return ORJSONResponse(
+            {
+                "status_code": 200,
+                "video_status": {
+                    "is_present": False
+                }
+            }
+        )
+
+    return ORJSONResponse(
+        {
+            "status_code": 200,
+            "video_status": {
+                "is_present": True
+            } 
+        }
+    )
+
 @api.get(api_constant.ROOT_API_ROUTE + "/videos/list/", status_code=200, response_class=ORJSONResponse)
 def list_videos_route():
     """ List videos route """

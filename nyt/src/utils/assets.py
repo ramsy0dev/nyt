@@ -3,11 +3,14 @@ import requests
 
 from nyt import constant
 
+# Models
+from nyt.src.models.config_model import Config
+
 paths = {
-    constant.NYT_HIGH_RESOLUTION_LOGO : f"https://raw.githubusercontent.com/{constant.AUTHOR}/nyt/main/assets/nyt-high-resolution-logo.png",
-    constant.NYT_HIGH_RESOLUTION_LOGO_WHITE: f"https://raw.githubusercontent.com/{constant.AUTHOR}/nyt/main/assets/nyt-high-resolution-logo-white.png",
-    constant.NYT_HIGH_RESOLUTION_LOGO_BLACK: f"https://raw.githubusercontent.com/{constant.AUTHOR}/nyt/main/assets/nyt-high-resolution-logo-black.png",
-    constant.NYT_HIGH_RESOLUTION_LOGO_TRANSPARENT: f"https://raw.githubusercontent.com/{constant.AUTHOR}/nyt/main/assets/nyt-high-resolution-logo-transparent.png"
+    Config.NYT_HIGH_RESOLUTION_LOGO : f"https://raw.githubusercontent.com/{constant.AUTHOR}/nyt/main/assets/nyt-high-resolution-logo.png",
+    Config.NYT_HIGH_RESOLUTION_LOGO_WHITE: f"https://raw.githubusercontent.com/{constant.AUTHOR}/nyt/main/assets/nyt-high-resolution-logo-white.png",
+    Config.NYT_HIGH_RESOLUTION_LOGO_BLACK: f"https://raw.githubusercontent.com/{constant.AUTHOR}/nyt/main/assets/nyt-high-resolution-logo-black.png",
+    Config.NYT_HIGH_RESOLUTION_LOGO_TRANSPARENT: f"https://raw.githubusercontent.com/{constant.AUTHOR}/nyt/main/assets/nyt-high-resolution-logo-transparent.png"
 }
 
 def download_assets() -> None:
@@ -46,5 +49,5 @@ def create_assets_prefix() -> None:
     """
     Creates the assets prefix directory.
     """
-    if not os.path.exists(constant.ASSETS_PREFIX):
-        os.mkdir(constant.ASSETS_PREFIX)
+    if not os.path.exists(Config.ASSETS_PREFIX):
+        os.mkdir(Config.ASSETS_PREFIX)

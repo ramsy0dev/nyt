@@ -1,14 +1,7 @@
 import notifypy
 import functools
 
-# NOTE: This is a temporary fix for the UnsupportedPlatform exception being raised
-# by notifypy because we are using Python 3.12.
-# PR: https://github.com/ms7m/notify-py/pull/55
-notifypy.Notify._selected_notification_system = functools.partial(notifypy.Notify._selected_notification_system, override_windows_version_detection=True)
-
-from nyt import constant
-
-def send_notification(summary_text: str, message: str) -> None:
+def send_notification(app_name: str, summary_text: str, message: str, icon_path: str) -> None:
     """
     Sends a notification to the desktop.
 
@@ -21,9 +14,10 @@ def send_notification(summary_text: str, message: str) -> None:
     """
     notify = notifypy.Notify()
     
-    notify.application_name = constant.PACKAGE
+    notify.application_name = app_name
     notify.title = summary_text
     notify.message = message
-    notify.icon = constant.NYT_HIGH_RESOLUTION_LOGO
+    notify.icon = icon_path 
     
     notify.send()
+

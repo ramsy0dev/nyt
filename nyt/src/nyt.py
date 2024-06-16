@@ -1,3 +1,4 @@
+import sys
 import json
 import random
 import yt_dlp
@@ -21,11 +22,16 @@ from nyt.src.database.database_handler import DatabaseHandler
 from nyt.src.database.tables.channels_table import Channels
 from nyt.src.database.tables.videos_table import Videos
 
+# Models
+from nyt.src.models.config_model import Config
+
 # Utils
 from nyt.src.utils.date import date_in_gmt
 from nyt.src.utils.generate_uid import generate_uid
 from nyt.src.utils.notification import send_notification
 
+# Config manager
+from nyt.src.config import ConfigManager
 
 class NYT:
     """
@@ -36,7 +42,7 @@ class NYT:
     # yt-dlp options
     ydl_opts = {
         "quiet": True,
-        "format": 'best',
+        "format": 'bestvideo+bestaudio/best[ext=mp4]', # File extension set to 'mp4' 
         "progress": True,
         "postprocessors": [{
             "key": "FFmpegVideoConvertor",
@@ -46,14 +52,26 @@ class NYT:
             "yt_dlp_plugins.age_gate_bypass.AgeGateBypassPlugin", # Plugin used to bypass age restriction
         ],
     }
+    # Retries count
+    DOWNLOAD_RETRIES: int = 3
 
     # Pair for each channel and the YouTube API Json response
-    channels_js_pair: dict[str, dict] = dict() 
+    channels_js_pair: dict[str, dict] = dict()
+    
+    # notification
+    show_notification: bool = True
+    
+    # Config manager 
+    config_manager: ConfigManager = ConfigManager()
+    config: Config = config_manager.load_config()
 
     def __init__(self) -> None:
-        self.database_handler = DatabaseHandler()
+        self.database_handler = DatabaseHandler(database_path=self.config.DATABASE_PATH)
+        
+        config_manager = ConfigManager()
+        self.config = config_manager.load_config()
 
-    def add_channel(self, channel_handle: str) -> None:
+    def add_channel(self, channel_handle: str) -> float | None:
         """
         Adds a channel to be tracked
 
@@ -73,7 +91,7 @@ class NYT:
         channel = Channels()
 
         watched_videos_uid = generate_uid(data=channel_handle)
-        
+
         channel.channel_uid = generate_uid(data=channel_handle)
         channel.channel_handle = channel_handle
         channel.video_starting_point_id = video_starting_point_id
@@ -82,14 +100,14 @@ class NYT:
         channel.channel_avatar_url_default = channel_info["avatar_urls"][0]
         channel.channel_avatar_url_medium = channel_info["avatar_urls"][1]
         channel.channel_avatar_url_high = channel_info["avatar_urls"][2]
-        
+
         channel.added_at = date_in_gmt()
 
         self.database_handler.add_channel_to_channels(
             channel=channel
         )
 
-    def remove_channel(self, channel_handle: str) -> None:
+    def remove_channel(self, channel_handle: str) -> float | None :
         """
         Remove a channel from being tracked.
 
@@ -116,6 +134,10 @@ class NYT:
             None.
         """
         channels = self.get_channels()
+        
+        if len(channels) == 0:
+            logger.info("No channels in the channels track list.")
+            sys.exit(0)
 
         logger.info(f"Channels that are being tracked are: {', '.join([channel.channel_handle for channel in channels])}")
 
@@ -125,7 +147,7 @@ class NYT:
             video_starting_point_id = channel.video_starting_point_id
             video_starting_point_id_index = None
 
-            logger.debug(f"Fetching last 10 videos by '{channel.channel_handle}'")
+            logger.debug(f"Fetching last uploaded videos by '{channel.channel_handle}'")
 
             channel_last_videos = self.get_channel_last_videos(
                 channel_handle=channel.channel_handle
@@ -149,22 +171,40 @@ class NYT:
             new_videos = channel_last_videos[video_starting_point_id_index+1:] # Exclude the video starting point
 
             logger.info(f"{len(new_videos)} new videos uploaded by '{channel.channel_handle}'")
-
-            summary_text = "New YouTube Videos"
-            message = f"{len(new_videos)} videos uploaded by '{channel.channel_handle}'"
-
-            send_notification(
-                summary_text=summary_text,
-                message=message
-            )
+            
+            if self.show_notification:
+                summary_text = "New YouTube Videos"
+                message = f"{len(new_videos)} videos uploaded by '{channel.channel_handle}'"
+                
+                send_notification(
+                    app_name=constant.PACKAGE,
+                    summary_text=summary_text,
+                    message=message,
+                    icon_path=self.config.NYT_HIGH_RESOLUTION_LOGO
+                )
+            
 
             for video in new_videos:
-                logger.info(f"Downloading '{video.title}' by '{video.author}' to '{constant.VIDEOS_PREFIX_DIRECTORY}'")
-                
-                output_path, publish_date, title, thumbnail_url, size = self.download_video(
-                    video_id=video.video_id,
-                    prefix_directory=constant.VIDEOS_PREFIX_DIRECTORY
-                )
+                logger.info(f"Downloading '{video.title}' by '{video.author}' to '{self.config.VIDEOS_PREFIX_DIRECTORY}'")
+ 
+                outer_break = False
+                while self.DOWNLOAD_RETRIES:
+                    n_fails = 1
+                    try:
+                        output_path, publish_date, title, thumbnail_url, size = self.download_video(
+                            video_id=video.video_id,
+                            prefix_directory=self.config.VIDEOS_PREFIX_DIRECTORY
+                        )
+                    except Exception as error:
+                        if self.DOWNLOAD_RETRIES - n_fails == 0:
+                            logger.warning(f"Skipping '{video.title}'. Reached maximum retries {self.DOWNLOAD_RETRIES}")
+                            outer_break = True
+                            continue
+                        logger.warning(f"Faild to download. Run into error: '{error}' Retrying... {n_fails}")
+                        n_fails += 1
+
+                if outer_break:
+                    continue
 
                 _video = Videos(
                     video_id = video_id,
@@ -217,7 +257,7 @@ class NYT:
 
         Args:
             channel_handle (str): The channel's handle.
-        
+
         Returns:
             dict: A dict containing the channel's info.
         """
@@ -228,17 +268,17 @@ class NYT:
         }
 
         return channel_info
-    
+
     def _load_channel_js(self, channel_handle: str) -> None:
         api_key = random.choice(constant._api_keys)
 
         channel = Channel(f"{self.youtube_base_route}/@{channel_handle}")
-        
+
         api_url = f"https://www.googleapis.com/youtube/v3/channels?part=snippet&id={channel.channel_id}&key={api_key}"
 
         res = requests.get(api_url)
         res_json = res.json()
-        
+
         self.channels_js_pair[channel_handle] = res_json
 
     def _get_channel_avatar_url(self, channel_handle: str) -> tuple[str, str, str]:
@@ -247,7 +287,7 @@ class NYT:
         avatar_url_high = self.channels_js_pair[channel_handle]['items'][0]['snippet']['thumbnails']['high']['url']
 
         return (avatar_url_default, avatar_url_medium, avatar_url_high)
-    
+
     def check_channel_tracked(self, channel_handle: str) -> bool:
         """
         Checks if a channel is already in the track list.
@@ -314,10 +354,10 @@ class NYT:
             watched_videos_uid=watched_videos_uid,
             watched_videos=watched_videos
         )
-    
+
     def get_channel_last_videos(self, channel_handle: str) -> list[YouTube]:
         """
-        Returns the last 10 uploaded videos to a YouTube channel
+        Returns the last uploaded videos to a YouTube channel
 
         Args:
             channel_handle (str): The channel's handle.
@@ -333,7 +373,7 @@ class NYT:
 
         contents_block = initial_data_json["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][1]["tabRenderer"]["content"]["richGridRenderer"]["contents"]
 
-        for content_block in contents_block[:10]:
+        for content_block in contents_block[:int(len(contents_block)/2)]:
             video_content = content_block["richItemRenderer"]["content"]
             video_id = video_content["videoRenderer"]["videoId"]
             video_url = f"{self.youtube_base_route}/watch?v={video_id}"
@@ -388,15 +428,19 @@ class NYT:
             tuple: A tuple of data about the video.
         """
         self.ydl_opts["outtmpl"] = f"{prefix_directory}{constant.PATH_DASH}%(uploader)s{constant.PATH_DASH}%(title)s"
-        
+
         video_url = f"{self.youtube_base_route}/watch?v={video_id}"
 
         with yt_dlp.YoutubeDL(self.ydl_opts) as yt:
-            info_dict = yt.extract_info(video_url)
+            info_dict = yt.extract_info(video_url, download=False)
 
-            file_name = yt.prepare_filename(info_dict=info_dict)
+            yt.download([video_url])
+
+            file_name = yt.prepare_filename(info_dict=info_dict) +  ".mp4"
             title = info_dict.get("title", None)
             thumbnail_url = info_dict.get("thumbnail", None)
+
+            logger.debug(f"{file_name = }, {title = }")
 
             size = Path(file_name).stat().st_size
             publish_date = datetime.fromtimestamp(int(info_dict["upload_date"]))

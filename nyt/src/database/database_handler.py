@@ -1,4 +1,7 @@
+import os
 import json
+
+from loguru import logger
 
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import (
@@ -24,8 +27,8 @@ from nyt.src.utils.generate_uid import generate_uid
 
 class DatabaseHandler:
     """ Database handler """
-    def __init__(self) -> None:
-        self.database = Database(database_path=constant.DATABASE_PATH)
+    def __init__(self, database_path: str) -> None:
+        self.database = Database(database_path=database_path)
         self.engine = self.database.engine()
         self.session = sessionmaker(bind=self.engine)
 
@@ -74,13 +77,25 @@ class DatabaseHandler:
         """
         with self.session() as session:
             channel = self.get_channel_row(channel_handle=channel_handle)
-
+            videos = self.get_channel_videos(channel_handle=channel_handle)
+            
+            # Delete the downloaded videos
+            for video in videos:
+                if video.is_downloaded:
+                    try:
+                        logger.info(f"Removing video '{video.download_path}'")
+                        os.remove(video.download_path)
+                    except FileNotFoundError:
+                        continue
             stmts = [
                 delete(Channels).where(
                     Channels.channel_handle == channel_handle
                 ),
                 delete(WatchedVideos).where(
                     WatchedVideos.watched_videos_uid == channel.watched_videos_uid
+                ),
+                delete(Videos).where(
+                    Videos.channel_handle == channel_handle
                 )
             ]
             
@@ -186,6 +201,26 @@ class DatabaseHandler:
             channel = session.execute(stmt).fetchone()[0]
         
         return channel
+    
+    def get_channel_videos(self, channel_handle: str) -> list[Videos]:
+        """
+        Fetch videos of a channel based on it channel_handle.
+
+        Args:
+            channel_handle (str): The channel's handle.
+
+        Returns:
+            list[Videos]: A list of videos.
+        """
+        videos: list[Videos] = None
+
+        with self.session() as session:
+            stmt = select(Videos).where(
+                Videos.channel_handle == channel_handle
+            )
+            videos = [video[0] for video in session.execute(stmt).fetchall()]
+        
+        return videos
 
     def get_watched_videos(self) -> list[WatchedVideos]:
         """
@@ -289,7 +324,7 @@ class DatabaseHandler:
         
         return videos
     
-    def get_video_from_videos(self, video_id: str) -> Videos:
+    def get_video_from_videos(self, video_id: str) -> Videos | None:
         """
         fetch a video row from the videos table.
 
@@ -298,6 +333,7 @@ class DatabaseHandler:
 
         Returns:
             Videos: A Videos row table instance that represents the video.
+            In case is doesn't exists None is returned.
         """
         video: Videos = None
 
@@ -305,8 +341,11 @@ class DatabaseHandler:
             stmt = select(Videos).where(
                 Videos.video_id == video_id
             )
-            video = session.execute(stmt).fetchone()[0]
-        
+            try:
+                video = session.execute(stmt).fetchone()[0]
+            except:
+                return None
+
         return video
 
     def update_videos_values(self, video_id: str, values: dict) -> None:
