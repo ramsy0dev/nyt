@@ -19,25 +19,11 @@ if PLATFORM == "win32":
     HOME = os.getenv("UserProfile")
     PATH_DASH = "\\"
 
-# nyt's root prefix path
-ROOT_PREFIX = f"{HOME}{PATH_DASH}.nyt"
+# The root prefix
+ROOT_PREFIX: str = f"{HOME}{PATH_DASH}.nyt"
 
-# API logs path
-API_LOG_PATH = f"{ROOT_PREFIX}{PATH_DASH}nyt.log"
-
-# Assets path
-ASSETS_PREFIX = f"{ROOT_PREFIX}{PATH_DASH}assets"
-
-NYT_HIGH_RESOLUTION_LOGO = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo.png"
-NYT_HIGH_RESOLUTION_LOGO_BLACK = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-black.png"
-NYT_HIGH_RESOLUTION_LOGO_WHITE = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-white.png"
-NYT_HIGH_RESOLUTION_LOGO_TRANSPARENT = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-transparent.png"
-
-# SQLite Database path
-DATABASE_PATH = f"{ROOT_PREFIX}{PATH_DASH}nyt.db"
-
-# Videos path
-VIDEOS_PREFIX_DIRECTORY = f"{ROOT_PREFIX}{PATH_DASH}videos"
+# Config file PATH_DASH
+CONFIG_FILE_PATH = f"{ROOT_PREFIX}{PATH_DASH}nyt.toml"
 
 # Response codes
 CHANNEL_ALREADY_TRACKED = 1e0

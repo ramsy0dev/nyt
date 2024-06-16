@@ -3,7 +3,10 @@ import os
 # NYT
 from nyt.src.nyt import NYT
 
-from nyt.constant import VIDEOS_PREFIX_DIRECTORY
+from nyt.src.config import ConfigManager
+
+# Models
+from nyt.src.models.config_model import Config
 
 # Database handler
 from nyt.src.database.database_handler import DatabaseHandler
@@ -12,6 +15,9 @@ class VideosHandler:
     """
     handles downloaded YouTube videos
     """
+    config_manager: ConfigManager = ConfigManager()
+    config: Config = config_manager.load_config()
+
     def __init__(self, database_handler: DatabaseHandler, nyt: NYT) -> None:
         self.database_handler = database_handler
         self.nyt = nyt
@@ -28,7 +34,7 @@ class VideosHandler:
         if not os.path.exists(video.download_path) or not video.is_downloaded:
             output_path = self.nyt.download_video(
                 video_id=video_id,
-                prefix_directory=VIDEOS_PREFIX_DIRECTORY
+                prefix_directory=self.config.VIDEOS_PREFIX_DIRECTORY
             )
             values = {
                 "download_path": output_path,

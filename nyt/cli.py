@@ -16,6 +16,12 @@ from nyt.src.logger.logger import (
     InterceptHandler
 )
 
+# Models
+from nyt.src.models.config_model import Config
+
+# Config manager
+from nyt.src.config import ConfigManager
+
 # Utils
 from nyt.src.utils.assets import (
     check_assets,
@@ -26,6 +32,11 @@ from nyt.src.utils.assets import (
 # Init cli
 cli = typer.Typer()
 
+# Config manager
+config_manager = ConfigManager()
+config = config_manager.load_config()
+
+# Costum intercept handler
 INTERCEPT_HANDLER = InterceptHandler()
 
 @cli.command()
@@ -36,7 +47,6 @@ def version():
 @cli.command()
 def track(
     channel_handle: str = typer.Option(None, "--channel-handle", help="The channel's handle"),
-    # debug_mode: bool = typer.Option(False, "--debug-mode", help="Enable debug mode")
 ):
     """ Add a YouTube channel to track """
     nyt = NYT()
@@ -53,7 +63,6 @@ def track(
 @cli.command()
 def remove(
     channel_handle: str = typer.Option(None, "--channel-handle", help="The channel's handle"),
-    # debug_mode: bool = typer.Option(False, "--debug-mode", help="Enable debug mode")
 ):
     """ Remove a channel from being tracked """
     nyt = NYT()
@@ -70,7 +79,6 @@ def remove(
 @cli.command()
 def watch(
     delay: int = typer.Option(30, "--delay", help="The delay between each check in minutes"),
-    # debug_mode: bool = typer.Option(False, "--debug-mode", help="Enable debug mode")
 ):
     """ Watch the YouTube channels and look out for new uploads """
     nyt = NYT()
@@ -87,9 +95,8 @@ def watch(
 
 @cli.command()
 def api(
-    host: str = typer.Option("localhost", "--host", help="The host for the API"),
-    port: int = typer.Option(8888, "--port", help="The port for the API"),
-    # debug_mode: bool = typer.Option(False, "--debug-mode", help="Enable debug mode")
+    host: str = typer.Option(config.API_HOST, "--host", help="The host for the API"),
+    port: int = typer.Option(config.API_PORT, "--port", help="The port for the API"),
 ):
     """ Serve the API """
     uvicorn.run(
@@ -104,15 +111,11 @@ def run() -> None:
     log_level_str = "DEBUG"
 
     handler = logging.handlers.RotatingFileHandler(
-        filename=constant.API_LOG_PATH,
+        filename=config.API_LOGS_FILE_PATH,
         maxBytes=10*1024*1024,
         backupCount=3
     )
-    logger.add(handler)
-
-    logging.basicConfig(handlers=[INTERCEPT_HANDLER], level=log_level_str)
-    logging.root.handlers = [INTERCEPT_HANDLER]
-    logging.root.setLevel(log_level_str)
+    logger.add(handler, level=log_level_str)
 
     SEEN = set()
 
@@ -129,8 +132,6 @@ def run() -> None:
             SEEN.add(name.split(".")[0])
             logging.getLogger(name).handlers = [INTERCEPT_HANDLER]
 
-    logger.configure(handlers=[{"sink": sys.stdout}])
-
     # Create prefix directories
     create_assets_prefix()
 
@@ -139,3 +140,4 @@ def run() -> None:
         download_assets()
 
     cli()
+
