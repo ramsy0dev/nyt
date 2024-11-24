@@ -17,7 +17,7 @@ class Config:
 
     # WEBAPP
     WEBAPP_HOST: str = "localhost"
-    WEBAPP_PORT: int = 8080 # NOTE: This is the default port used by Django therefor it can't changed from here.
+    WEBAPP_PORT: int = 8080
     
     # The config file path
     CONFIG_FILE_PATH: str = f"{ROOT_PREFIX}{PATH_DASH}nyt.toml"
