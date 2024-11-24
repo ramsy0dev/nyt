@@ -27,6 +27,9 @@ class ConfigManager:
         """
         config = Config()
         
+        if not self.is_config_dir_exists():
+            os.mkdir(constant.ROOT_PREFIX)
+
         if constant.CONFIG_FILE_PATH.split(constant.PATH_DASH)[-1] not in os.listdir(constant.ROOT_PREFIX):
             self.write_config()
 
@@ -91,4 +94,17 @@ nyt_high_resolution_logo_white = "{default_config.NYT_HIGH_RESOLUTION_LOGO_BLACK
 nyt_high_resolution_transparent = "{default_config.NYT_HIGH_RESOLUTION_LOGO_BLACK}"
 """
         return config
+    
+    def is_config_dir_exists(self) -> bool:
+        """
+        Check if the config directory exists or not.
+
+        Args:
+            None.
+
+        Returns:
+            bool: True if it exists, otherwise False.
+        """
+        
+        return Path(constant.ROOT_PREFIX).exists()
 
