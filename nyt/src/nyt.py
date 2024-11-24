@@ -46,7 +46,7 @@ class NYT:
         "progress": True,
         "postprocessors": [{
             "key": "FFmpegVideoConvertor",
-            "preferedformat": "mp4"
+            # "preferedformat": "mp4"
         }],
         "plugins": [
             "yt_dlp_plugins.age_gate_bypass.AgeGateBypassPlugin", # Plugin used to bypass age restriction
@@ -431,12 +431,14 @@ class NYT:
 
         video_url = f"{self.youtube_base_route}/watch?v={video_id}"
 
-        with yt_dlp.YoutubeDL(self.ydl_opts) as yt:
+        with yt_dlp.YoutubeDL(self.ydl_opts) as yt: 
             info_dict = yt.extract_info(video_url, download=False)
 
             yt.download([video_url])
 
-            file_name = yt.prepare_filename(info_dict=info_dict) +  ".mp4"
+            # file_name = yt.prepare_filename(info_dict=info_dict) +  ".mp4"
+            
+            file_name = yt.prepare_filename(info_dict=info_dict)
             title = info_dict.get("title", None)
             thumbnail_url = info_dict.get("thumbnail", None)
 
