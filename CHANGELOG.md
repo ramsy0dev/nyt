@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.3 — 2026-05-01
+
+### Fixes
+
+- Serve `logo.svg` as favicon on all pages via `GET /favicon.ico`
+- Fix favicon returning 404 — route must be registered before `api.mount("/static", ...)` to avoid Starlette shadowing it
+
+---
+
 ## v0.2.2 — 2026-05-01
 
 This release is a near-complete rewrite of the backend and a full replacement of the frontend. It is **not compatible** with v0.1.x — see the breaking changes section before upgrading.
