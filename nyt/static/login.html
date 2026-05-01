@@ -23,16 +23,21 @@
       --radius-pill: 50px 40px 48px 44px / 42px 50px 40px 46px;
     }
 
-    html, body {
+    html {
       background-color: var(--bg);
       background-image: radial-gradient(circle, #d9c9a3 1.2px, transparent 1.2px);
       background-size: 26px 26px;
-      color: var(--ink);
-      font-family: var(--font-body);
+      min-height: 100%;
+    }
+
+    body {
+      width: 100%;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      color: var(--ink);
+      font-family: var(--font-body);
       -webkit-font-smoothing: antialiased;
     }
 
@@ -44,18 +49,35 @@
       border: 3px solid var(--ink);
       border-radius: var(--radius-card);
       box-shadow: 7px 7px 0 var(--shadow);
-      padding: 40px 36px 36px;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0;
     }
 
-    .logo-img {
-      height: 56px;
+    /* dark logo banner — mirrors the nav */
+    .logo-banner {
+      width: 100%;
+      background: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 0 24px;
+      border-bottom: 2.5px solid var(--shadow);
+    }
+
+    .logo-banner img {
+      height: 52px;
       width: auto;
       display: block;
-      margin-bottom: 10px;
+    }
+
+    .card-body {
+      width: 100%;
+      padding: 32px 36px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .tagline {
@@ -63,7 +85,7 @@
       font-size: 18px;
       font-weight: 500;
       color: var(--muted);
-      margin-bottom: 32px;
+      margin-bottom: 28px;
       text-align: center;
     }
 
@@ -123,8 +145,8 @@
       transition: transform 0.12s, box-shadow 0.12s;
     }
 
-    .btn-signin:hover { transform: translateY(-2px); box-shadow: 6px 6px 0 var(--ink); }
-    .btn-signin:active { transform: translateY(1px); box-shadow: 2px 2px 0 var(--ink); }
+    .btn-signin:hover  { transform: translateY(-2px); box-shadow: 6px 6px 0 var(--ink); }
+    .btn-signin:active { transform: translateY(1px);  box-shadow: 2px 2px 0 var(--ink); }
     .btn-signin:disabled { opacity: 0.55; pointer-events: none; }
 
     #error-msg {
@@ -144,21 +166,25 @@
 <body>
 
 <div class="card">
-  <img class="logo-img" src="/static/logo-dark.png" alt="nyt">
-  <p class="tagline">your private video library</p>
+  <div class="logo-banner">
+    <img src="/static/logo.svg" alt="nyt">
+  </div>
+  <div class="card-body">
+    <p class="tagline">your private video library</p>
 
-  <form class="form" id="login-form" onsubmit="handleLogin(event)">
-    <div class="field">
-      <label for="username">Username</label>
-      <input id="username" type="text" name="username" autocomplete="username" placeholder="admin" required>
-    </div>
-    <div class="field">
-      <label for="password">Password</label>
-      <input id="password" type="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
-    </div>
-    <div id="error-msg"></div>
-    <button class="btn-signin" type="submit" id="btn-signin">Sign in</button>
-  </form>
+    <form class="form" id="login-form" onsubmit="handleLogin(event)">
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" type="text" name="username" autocomplete="username" placeholder="admin" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
+      </div>
+      <div id="error-msg"></div>
+      <button class="btn-signin" type="submit" id="btn-signin">Sign in</button>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -175,17 +201,17 @@
   async function handleLogin(e) {
     e.preventDefault();
 
-    const btn     = document.getElementById('btn-signin');
-    const errEl   = document.getElementById('error-msg');
+    const btn      = document.getElementById('btn-signin');
+    const errEl    = document.getElementById('error-msg');
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
 
-    btn.disabled   = true;
+    btn.disabled    = true;
     btn.textContent = 'Signing in…';
     errEl.style.display = 'none';
 
     try {
-      const res = await fetch('/api/v1/auth/login', {
+      const res  = await fetch('/api/v1/auth/login', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ username, password }),
@@ -195,14 +221,14 @@
       if (data.ok) {
         window.location.replace('/');
       } else {
-        errEl.textContent = data.message || 'Invalid credentials';
+        errEl.textContent   = data.message || 'Invalid credentials';
         errEl.style.display = 'block';
       }
     } catch {
-      errEl.textContent = 'Server unreachable. Is nyt serve running?';
+      errEl.textContent   = 'Server unreachable. Is nyt serve running?';
       errEl.style.display = 'block';
     } finally {
-      btn.disabled   = false;
+      btn.disabled    = false;
       btn.textContent = 'Sign in';
     }
   }

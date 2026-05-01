@@ -347,6 +347,29 @@
 
     .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
+    /* ── TOGGLE SWITCH ───────────────────────────────────── */
+    .toggle { position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: var(--shadow);
+      border: 2px solid var(--ink);
+      border-radius: 50px;
+      transition: background 0.2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      left: 2px; top: 50%; transform: translateY(-50%);
+      background: var(--surface);
+      border-radius: 50%;
+      border: 2px solid var(--ink);
+      transition: transform 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--coral); }
+    .toggle input:checked + .toggle-track::after { transform: translateY(-50%) translateX(20px); }
+
     /* ── CONFIRM PASSWORD INPUT ──────────────────────────── */
     #confirm-password-wrap {
       margin-bottom: 16px;
@@ -409,16 +432,146 @@
       Storage
     </div>
 
+    <!-- usage meter -->
+    <div id="storage-meter-wrap" style="margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <span style="font-family:var(--font-hand);font-size:17px;font-weight:700;color:var(--ink);">Used</span>
+        <span id="storage-usage-text" style="font-size:13px;font-weight:700;color:var(--muted);">—</span>
+      </div>
+      <div style="height:8px;background:var(--shadow);border-radius:6px;overflow:hidden;border:1.5px solid var(--ink);">
+        <div id="storage-bar" style="height:100%;width:0%;background:var(--coral);border-radius:6px;transition:width 0.5s ease;"></div>
+      </div>
+      <div id="storage-limit-note" style="font-size:11px;color:var(--muted);margin-top:4px;font-weight:600;"></div>
+    </div>
+
+    <div class="field">
+      <label for="input-storage-limit">Storage limit (GB)</label>
+      <span class="field-hint">Maximum disk space for downloaded videos. Set to 0 for no limit. The watcher will stop auto-downloading when this limit is reached.</span>
+      <input type="number" id="input-storage-limit" min="0" step="1" value="0" style="max-width:160px;">
+    </div>
+
+    <hr class="divider">
+
     <div class="field">
       <label for="input-videos-dir">Videos directory</label>
       <span class="field-hint">Where downloaded videos are stored. Changing this does not move existing files.</span>
       <input type="text" id="input-videos-dir" placeholder="/home/user/.nyt/videos">
     </div>
 
+    <hr class="divider">
+
+    <div class="field">
+      <label>Auto-delete watched videos</label>
+      <span class="field-hint">Automatically remove local video files after they have been watched. The video will still appear in your library as not downloaded.</span>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+        <label class="toggle">
+          <input type="checkbox" id="toggle-auto-delete" onchange="toggleAutoDelete(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+        <span id="auto-delete-label" style="font-size:14px;font-weight:700;color:var(--muted);">Disabled</span>
+      </div>
+    </div>
+
+    <div class="field" id="auto-delete-days-wrap" style="display:none;">
+      <label for="input-auto-delete-days">Delete after (days)</label>
+      <input type="number" id="input-auto-delete-days" min="1" max="3650" value="15"
+             style="max-width:140px;">
+    </div>
+
     <div class="save-row">
       <button class="btn btn-primary" id="btn-save-storage" onclick="saveStorage()">
         <i data-lucide="save" size="16"></i> Save
       </button>
+    </div>
+  </div>
+
+  <!-- ── PLAYER ────────────────────────────────────────── -->
+  <div class="section" id="section-player">
+    <div class="section-title">
+      <i data-lucide="play-circle" size="20"></i>
+      Player
+    </div>
+
+    <div class="field">
+      <label>Quality selection</label>
+      <span class="field-hint">Show a quality picker on stream-only videos. Requires an extra network request (~2s) on first play to resolve available formats.</span>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+        <label class="toggle">
+          <input type="checkbox" id="toggle-quality" onchange="savePlayer()">
+          <span class="toggle-track"></span>
+        </label>
+        <span id="quality-label" style="font-size:14px;font-weight:700;color:var(--muted);">Disabled</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Transcoding</label>
+      <span class="field-hint">Generate 720p / 480p / 360p versions of downloaded videos via FFmpeg in the background. Resource-intensive. Requires FFmpeg installed on the server.</span>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+        <label class="toggle">
+          <input type="checkbox" id="toggle-transcode" onchange="savePlayer()">
+          <span class="toggle-track"></span>
+        </label>
+        <span id="transcode-label" style="font-size:14px;font-weight:700;color:var(--muted);">Disabled</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ABOUT ───────────────────────────────────────────── -->
+  <div class="section" id="section-about">
+    <div class="section-title">
+      <i data-lucide="info" size="20"></i>
+      About
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-family:var(--font-hand);font-size:28px;font-weight:700;color:var(--ink);">nyt</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px;">No YouTube — self-hosted channel tracker</div>
+      </div>
+      <span id="version-badge" class="badge badge-off" style="font-size:15px;">—</span>
+    </div>
+
+    <div id="update-status" style="margin-top:18px;display:none;">
+      <div style="
+        display:flex;align-items:center;gap:12px;
+        background:var(--coral-bg);
+        border:2px solid var(--coral);
+        border-radius:10px 6px 12px 8px / 8px 12px 6px 10px;
+        padding:14px 18px;
+      ">
+        <i data-lucide="arrow-up-circle" size="20" style="color:var(--coral);flex-shrink:0;"></i>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:14px;color:var(--ink);">Update available</div>
+          <div id="update-version" style="font-size:13px;color:var(--muted);margin-top:2px;"></div>
+        </div>
+        <a id="update-link" href="#" target="_blank" rel="noopener" class="btn btn-primary" style="font-size:16px;padding:7px 18px;">
+          View release
+        </a>
+      </div>
+    </div>
+
+    <div id="up-to-date-status" style="margin-top:18px;display:none;">
+      <div style="
+        display:flex;align-items:center;gap:10px;
+        background:var(--green-bg);
+        border:2px solid var(--green);
+        border-radius:10px 6px 12px 8px / 8px 12px 6px 10px;
+        padding:12px 16px;
+        font-size:14px;font-weight:700;color:#2e7d32;
+      ">
+        <i data-lucide="check-circle-2" size="18" style="color:var(--green);"></i>
+        You're on the latest version
+      </div>
+    </div>
+
+    <div style="margin-top:18px;display:flex;gap:14px;align-items:center;">
+      <a href="https://github.com/ramsy0dev/nyt" target="_blank" rel="noopener"
+         style="font-size:13px;font-weight:700;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:5px;">
+        <i data-lucide="github" size="14"></i> ramsy0dev/nyt
+      </a>
+      <span style="color:var(--shadow);">·</span>
+      <span style="font-size:13px;color:var(--muted);">GPL-3.0</span>
     </div>
   </div>
 
@@ -551,6 +704,10 @@
   }
 
   // ── Auth ───────────────────────────────────────────────
+  async function refreshAuth() {
+    try { await fetch('/api/v1/auth/refresh', { method: 'POST' }); } catch {}
+  }
+
   async function logout() {
     await apiFetch('/api/v1/auth/logout', { method: 'POST' });
     window.location.replace('/login');
@@ -575,6 +732,46 @@
 
     document.getElementById('input-delay').value = s.watch_delay_minutes;
     document.getElementById('input-videos-dir').value = s.videos_directory;
+    document.getElementById('input-storage-limit').value = s.storage_limit_gb ?? 0;
+
+    // Storage meter
+    const usedBytes = s.storage_used_bytes || 0;
+    const limitGb   = s.storage_limit_gb   || 0;
+    const usedGb    = usedBytes / (1024 ** 3);
+    const usedMb    = usedBytes / (1024 ** 2);
+    const usedStr   = usedGb >= 1 ? `${usedGb.toFixed(2)} GB` : `${usedMb.toFixed(0)} MB`;
+    const limitStr  = limitGb > 0 ? `${limitGb} GB limit` : 'No limit';
+    document.getElementById('storage-usage-text').textContent = usedStr;
+    document.getElementById('storage-limit-note').textContent  = limitStr;
+    const pct = limitGb > 0 ? Math.min(usedGb / limitGb * 100, 100) : 0;
+    const bar = document.getElementById('storage-bar');
+    bar.style.width = `${pct}%`;
+    bar.style.background = pct >= 90 ? 'var(--red)' : pct >= 70 ? '#e89a3c' : 'var(--coral)';
+
+    // Quality selection
+    const qToggle = document.getElementById('toggle-quality');
+    const qLabel  = document.getElementById('quality-label');
+    qToggle.checked  = !!s.quality_selection_enabled;
+    qLabel.textContent = s.quality_selection_enabled ? 'Enabled' : 'Disabled';
+    qLabel.style.color = s.quality_selection_enabled ? 'var(--coral)' : 'var(--muted)';
+
+    // Transcoding
+    const tToggle = document.getElementById('toggle-transcode');
+    const tLabel  = document.getElementById('transcode-label');
+    tToggle.checked = !!s.transcoding_enabled;
+    tLabel.textContent = s.transcoding_enabled ? 'Enabled' : 'Disabled';
+    tLabel.style.color = s.transcoding_enabled ? 'var(--coral)' : 'var(--muted)';
+
+    // Auto-delete
+    const adDays  = s.auto_delete_watched_days || 0;
+    const adOn    = adDays > 0;
+    const adToggle = document.getElementById('toggle-auto-delete');
+    const adLabel  = document.getElementById('auto-delete-label');
+    adToggle.checked = adOn;
+    adLabel.textContent = adOn ? 'Enabled' : 'Disabled';
+    adLabel.style.color = adOn ? 'var(--coral)' : 'var(--muted)';
+    document.getElementById('auto-delete-days-wrap').style.display = adOn ? '' : 'none';
+    if (adDays > 0) document.getElementById('input-auto-delete-days').value = adDays;
 
     _authEnabled = s.auth_enabled;
     _currentUsername = s.admin_username || '';
@@ -616,11 +813,22 @@
     else showToast(data.message || 'Failed to save', true);
   }
 
-  // ── Storage (same endpoint as general) ─────────────────
+  // ── Toggle auto-delete visibility ─────────────────────
+  function toggleAutoDelete(on) {
+    const label = document.getElementById('auto-delete-label');
+    label.textContent  = on ? 'Enabled' : 'Disabled';
+    label.style.color  = on ? 'var(--coral)' : 'var(--muted)';
+    document.getElementById('auto-delete-days-wrap').style.display = on ? '' : 'none';
+  }
+
+  // ── Storage ────────────────────────────────────────────
   async function saveStorage() {
-    const btn = document.getElementById('btn-save-storage');
-    const delay = parseInt(document.getElementById('input-delay').value, 10) || 60;
-    const dir = document.getElementById('input-videos-dir').value.trim();
+    const btn    = document.getElementById('btn-save-storage');
+    const delay  = parseInt(document.getElementById('input-delay').value, 10) || 60;
+    const dir    = document.getElementById('input-videos-dir').value.trim();
+    const limitGb = parseFloat(document.getElementById('input-storage-limit').value) || 0;
+    const adOn   = document.getElementById('toggle-auto-delete').checked;
+    const adDays = adOn ? (parseInt(document.getElementById('input-auto-delete-days').value, 10) || 15) : 0;
 
     if (!dir) { showToast('Videos directory cannot be empty', true); return; }
 
@@ -628,13 +836,36 @@
     const res = await apiFetch('/api/v1/settings/general', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ watch_delay_minutes: delay, videos_directory: dir }),
+      body: JSON.stringify({ watch_delay_minutes: delay, videos_directory: dir, storage_limit_gb: limitGb, auto_delete_watched_days: adDays }),
     });
     btn.disabled = false;
     if (!res) return;
     const data = await res.json();
-    if (data.ok) showToast('Storage settings saved');
+    if (data.ok) { showToast('Storage settings saved'); loadSettings(); }
     else showToast(data.message || 'Failed to save', true);
+  }
+
+  // ── Player ─────────────────────────────────────────────
+  async function savePlayer() {
+    const qOn = document.getElementById('toggle-quality').checked;
+    const qLabel = document.getElementById('quality-label');
+    qLabel.textContent = qOn ? 'Enabled' : 'Disabled';
+    qLabel.style.color = qOn ? 'var(--coral)' : 'var(--muted)';
+
+    const tOn = document.getElementById('toggle-transcode').checked;
+    const tLabel = document.getElementById('transcode-label');
+    tLabel.textContent = tOn ? 'Enabled' : 'Disabled';
+    tLabel.style.color = tOn ? 'var(--coral)' : 'var(--muted)';
+
+    const delay = parseInt(document.getElementById('input-delay').value, 10) || 60;
+    const dir   = document.getElementById('input-videos-dir').value.trim();
+
+    await apiFetch('/api/v1/settings/general', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ watch_delay_minutes: delay, videos_directory: dir, quality_selection_enabled: qOn, transcoding_enabled: tOn }),
+    });
+    showToast(on ? 'Quality selection enabled' : 'Quality selection disabled');
   }
 
   // ── Enable auth ───────────────────────────────────────
@@ -719,10 +950,33 @@
     }
   }
 
+  // ── Version check ─────────────────────────────────────
+  async function loadVersion() {
+    const res = await apiFetch('/api/v1/version');
+    if (!res) return;
+    const data = await res.json();
+
+    document.getElementById('version-badge').textContent = data.current_version;
+    document.getElementById('version-badge').className = 'badge badge-on';
+
+    if (data.update_available) {
+      document.getElementById('update-version').textContent =
+        `${data.latest_version} is available`;
+      document.getElementById('update-link').href = data.release_url || '#';
+      document.getElementById('update-status').style.display = '';
+      lucide.createIcons();
+    } else if (data.latest_version) {
+      document.getElementById('up-to-date-status').style.display = '';
+      lucide.createIcons();
+    }
+  }
+
   // ── Init ──────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
+    refreshAuth();
     loadSettings();
+    loadVersion();
   });
 </script>
 </body>

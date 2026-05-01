@@ -777,17 +777,6 @@ files = [
 ]
 
 [[package]]
-name = "pytubefix"
-version = "8.13.1"
-description = "Python3 library for downloading YouTube Videos."
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "pytubefix-8.13.1-py3-none-any.whl", hash = "sha256:302eb359d0e2c9fbe25e88439c731d066cc8e5c10dd6a7bac2ce964ff9695255"},
-    {file = "pytubefix-8.13.1.tar.gz", hash = "sha256:c5de0761101a78cb189eec88163368d2300bd86d3c7826ba0e1addb310c58d9c"},
-]
-
-[[package]]
 name = "pyyaml"
 version = "6.0.3"
 description = "YAML parser and emitter for Python"
@@ -1328,4 +1317,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<4.0"
-content-hash = "044ee507c8d8bcc8d6bf52907bd3b89acb7402f22a909f9383520f4a439ad828"
+content-hash = "4a8a5c5f8169ef047f9aa9f71ef68636c619c44f0af08945f80131dcd267c42d"

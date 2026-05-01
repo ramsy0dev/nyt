@@ -1,9 +1,12 @@
+import asyncio
 import hashlib
+import json
 import pathlib
 import secrets
+import time
 import requests as _requests
 
-from fastapi import FastAPI, Header, Request, Depends, Response
+from fastapi import FastAPI, Header, Request, Depends
 from fastapi.responses import (
     FileResponse,
     ORJSONResponse,
@@ -14,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from nyt import constant
 from nyt.src.api.classes import classes
 from nyt.src.api import constant as api_constant
 from nyt.src.api.auth.auth import auth_manager, require_auth
@@ -92,12 +96,13 @@ class LoginBody(BaseModel):
 
 
 @api.post(f"{ROOT}/auth/login", response_class=ORJSONResponse)
-async def auth_login_route(body: LoginBody, response: Response):
+async def auth_login_route(body: LoginBody):
     config = ConfigManager().load_config()
     if not config.ADMIN_USERNAME:
         token = auth_manager.create_session()
-        response.set_cookie("nyt_session", token, httponly=True, samesite="strict", max_age=86400 * 30)
-        return ORJSONResponse({"ok": True})
+        resp  = ORJSONResponse({"ok": True})
+        resp.set_cookie("nyt_session", token, httponly=True, samesite="strict", max_age=86400 * 30)
+        return resp
 
     pw_hash = hashlib.pbkdf2_hmac(
         "sha256",
@@ -110,17 +115,32 @@ async def auth_login_route(body: LoginBody, response: Response):
         return ORJSONResponse({"ok": False, "message": "Invalid credentials"}, status_code=401)
 
     token = auth_manager.create_session()
-    response.set_cookie("nyt_session", token, httponly=True, samesite="strict", max_age=86400 * 30)
-    return ORJSONResponse({"ok": True})
+    resp  = ORJSONResponse({"ok": True})
+    resp.set_cookie("nyt_session", token, httponly=True, samesite="strict", max_age=86400 * 30)
+    return resp
+
+
+@api.post(f"{ROOT}/auth/refresh", response_class=ORJSONResponse)
+async def auth_refresh_route(request: Request):
+    if not auth_manager.is_auth_enabled():
+        return ORJSONResponse({"ok": True, "refreshed": False})
+    token = request.cookies.get("nyt_session")
+    if not token or not auth_manager.validate_session(token):
+        return ORJSONResponse({"ok": False}, status_code=401)
+    new_token = auth_manager.create_session()
+    resp = ORJSONResponse({"ok": True, "refreshed": True})
+    resp.set_cookie("nyt_session", new_token, httponly=True, samesite="strict", max_age=86400 * 30)
+    return resp
 
 
 @api.post(f"{ROOT}/auth/logout", response_class=ORJSONResponse)
-async def auth_logout_route(request: Request, response: Response):
+async def auth_logout_route(request: Request):
     token = request.cookies.get("nyt_session")
     if token:
         auth_manager.revoke_session(token)
-    response.delete_cookie("nyt_session")
-    return ORJSONResponse({"ok": True})
+    resp = ORJSONResponse({"ok": True})
+    resp.delete_cookie("nyt_session")
+    return resp
 
 
 @api.get(f"{ROOT}/auth/status", response_class=ORJSONResponse)
@@ -145,6 +165,30 @@ async def watcher_status_route():
             "error":    watcher_state.error,
         },
     })
+
+
+# ── Download progress (SSE) ───────────────────────────────────────────────────
+
+@api.get(f"{ROOT}/downloads/progress")
+async def download_progress_sse(request: Request):
+    from nyt.src.api.download_state import get_all_progress
+
+    async def _stream():
+        while True:
+            if await request.is_disconnected():
+                break
+            yield f"data: {json.dumps(get_all_progress())}\n\n"
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        _stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection":       "keep-alive",
+        },
+    )
 
 
 # ── API root ──────────────────────────────────────────────────────────────────
@@ -276,8 +320,54 @@ async def video_status_route(video_id: str):
     })
 
 
+@api.get(f"{ROOT}/videos/{{video_id}}/metadata", response_class=ORJSONResponse,
+         dependencies=[Depends(require_auth)])
+async def get_video_metadata_route(video_id: str):
+    video = classes.database_handler.get_video_from_videos(video_id=video_id)
+    if not video:
+        return ORJSONResponse({"detail": "not found"}, status_code=404)
+    return ORJSONResponse({
+        "status_code": 200,
+        "subtitles":   video.subtitles or [],
+        "chapters":    video.chapters  or [],
+    })
+
+
+@api.get(f"{ROOT}/videos/{{video_id}}/subtitles/{{lang}}", include_in_schema=False)
+async def get_subtitle_route(video_id: str, lang: str):
+    import os
+    video = classes.database_handler.get_video_from_videos(video_id=video_id)
+    if not video:
+        return ORJSONResponse({"detail": "not found"}, status_code=404)
+    for sub in (video.subtitles or []):
+        if sub.get("lang") == lang:
+            path = sub.get("path", "")
+            if path and os.path.exists(path):
+                return FileResponse(path, media_type="text/vtt")
+    return ORJSONResponse({"detail": "subtitle not found"}, status_code=404)
+
+
+@api.get(f"{ROOT}/videos/{{video_id}}/formats", response_class=ORJSONResponse,
+         dependencies=[Depends(require_auth)])
+async def get_video_formats_route(video_id: str):
+    config = ConfigManager().load_config()
+    video  = classes.database_handler.get_video_from_videos(video_id=video_id)
+
+    if video and video.is_downloaded and video.download_path:
+        if not config.TRANSCODING_ENABLED:
+            return ORJSONResponse({"status_code": 403, "message": "Transcoding is disabled"}, status_code=403)
+        formats = classes.videos_handler.get_local_formats(video_id)
+        return ORJSONResponse({"status_code": 200, "formats": formats, "is_local": True})
+
+    if not config.QUALITY_SELECTION_ENABLED:
+        return ORJSONResponse({"status_code": 403, "message": "Quality selection is disabled"}, status_code=403)
+
+    formats = classes.videos_handler.get_formats(video_id)
+    return ORJSONResponse({"status_code": 200, "formats": formats, "is_local": False})
+
+
 @api.get(f"{ROOT}/videos/{{video_id}}", status_code=200, response_class=StreamingResponse)
-async def get_videos_route(video_id: str, range_header: str = Header(None)):
+async def get_videos_route(video_id: str, range_header: str = Header(None), format_id: str | None = None):
     if range_header:
         start, end = parse_range_header(range_header)
     else:
@@ -286,7 +376,7 @@ async def get_videos_route(video_id: str, range_header: str = Header(None)):
     media_type = classes.videos_handler.get_video_mime(video_id)
 
     return StreamingResponse(
-        classes.videos_handler.stream_video(video_id=video_id, start=start, end=end),
+        classes.videos_handler.stream_video(video_id=video_id, start=start, end=end, format_id=format_id),
         media_type=media_type,
     )
 
@@ -296,14 +386,20 @@ async def get_videos_route(video_id: str, range_header: str = Header(None)):
 @api.get(f"{ROOT}/settings", response_class=ORJSONResponse,
          dependencies=[Depends(require_auth)])
 async def get_settings_route():
-    config = ConfigManager().load_config()
+    config     = ConfigManager().load_config()
+    used_bytes = classes.database_handler.get_storage_used_bytes()
     return ORJSONResponse({
         "status_code": 200,
         "settings": {
-            "watch_delay_minutes": config.WATCH_DELAY_MINUTES,
-            "videos_directory":    config.VIDEOS_PREFIX_DIRECTORY,
-            "auth_enabled":        bool(config.ADMIN_USERNAME),
-            "admin_username":      config.ADMIN_USERNAME,
+            "watch_delay_minutes":       config.WATCH_DELAY_MINUTES,
+            "videos_directory":          config.VIDEOS_PREFIX_DIRECTORY,
+            "storage_limit_gb":          config.STORAGE_LIMIT_GB,
+            "storage_used_bytes":        used_bytes,
+            "auth_enabled":              bool(config.ADMIN_USERNAME),
+            "admin_username":            config.ADMIN_USERNAME,
+            "quality_selection_enabled": config.QUALITY_SELECTION_ENABLED,
+            "transcoding_enabled":       config.TRANSCODING_ENABLED,
+            "auto_delete_watched_days":  config.AUTO_DELETE_WATCHED_DAYS,
         },
     })
 
@@ -311,6 +407,10 @@ async def get_settings_route():
 class GeneralSettingsBody(BaseModel):
     watch_delay_minutes: int
     videos_directory: str
+    storage_limit_gb: float | None = None
+    quality_selection_enabled: bool | None = None
+    transcoding_enabled: bool | None = None
+    auto_delete_watched_days: int | None = None
 
 
 @api.put(f"{ROOT}/settings/general", response_class=ORJSONResponse,
@@ -321,6 +421,10 @@ async def update_general_settings_route(body: GeneralSettingsBody):
     ConfigManager().save_settings(
         watch_delay_minutes=body.watch_delay_minutes,
         videos_directory=body.videos_directory.strip() or None,
+        storage_limit_gb=max(0.0, body.storage_limit_gb) if body.storage_limit_gb is not None else None,
+        quality_selection_enabled=body.quality_selection_enabled,
+        transcoding_enabled=body.transcoding_enabled,
+        auto_delete_watched_days=body.auto_delete_watched_days,
     )
     return ORJSONResponse({"ok": True})
 
@@ -368,3 +472,40 @@ async def disable_auth_route(body: DisableAuthBody):
         return ORJSONResponse({"ok": False, "message": "Password is incorrect"}, status_code=401)
     ConfigManager().save_auth("", "", "")
     return ORJSONResponse({"ok": True})
+
+
+# ── Version / update check ────────────────────────────────────────────────────
+
+_GITHUB_RELEASES = f"https://api.github.com/repos/{constant.AUTHOR}/nyt/releases/latest"
+_version_cache: dict = {"tag": None, "url": None, "fetched_at": 0.0}
+_VERSION_TTL = 3600  # re-check GitHub at most once per hour
+
+
+@api.get(f"{ROOT}/version", response_class=ORJSONResponse,
+         dependencies=[Depends(require_auth)])
+async def version_route():
+    now = time.monotonic()
+    if now - _version_cache["fetched_at"] > _VERSION_TTL:
+        try:
+            res = _requests.get(
+                _GITHUB_RELEASES,
+                timeout=5,
+                headers={"Accept": "application/vnd.github+json"},
+            )
+            res.raise_for_status()
+            body = res.json()
+            _version_cache["tag"] = body.get("tag_name")
+            _version_cache["url"] = body.get("html_url")
+        except Exception:
+            pass  # keep stale cache; don't overwrite fetched_at so we retry next request
+        else:
+            _version_cache["fetched_at"] = now
+
+    latest  = _version_cache["tag"]
+    current = constant.VERSION
+    return ORJSONResponse({
+        "current_version":  current,
+        "latest_version":   latest,
+        "update_available": bool(latest and latest != current),
+        "release_url":      _version_cache["url"],
+    })

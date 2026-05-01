@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 
@@ -16,3 +16,6 @@ class Videos:
     timestamp:      datetime | None = None
     updated_at:     datetime | None = None
     added_at:       datetime | None = None
+    variants:       list = field(default_factory=list)
+    subtitles:      list = field(default_factory=list)
+    chapters:       list = field(default_factory=list)

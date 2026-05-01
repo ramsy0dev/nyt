@@ -1,4 +1,5 @@
 import os
+import time
 import mimetypes
 import requests
 import yt_dlp
@@ -11,6 +12,9 @@ from nyt.src.nyt import NYT
 
 _MIME_FALLBACK = "video/mp4"
 _CHUNK = 8 * 1024 * 1024  # 8 MB
+_FORMAT_TTL = 3600  # YouTube stream URLs stay valid for ~6 hours; cache conservatively
+
+_format_cache: dict[str, dict] = {}  # video_id -> {expires_at, formats, url_map}
 
 
 def _mime_for(path: str) -> str:
@@ -29,13 +33,76 @@ class VideosHandler:
             return _mime_for(video.download_path)
         return _MIME_FALLBACK
 
-    def stream_video(self, video_id: str, start: int, end: int):
+    def get_formats(self, video_id: str) -> list[dict]:
+        cached = _format_cache.get(video_id)
+        if cached and time.monotonic() < cached["expires_at"]:
+            return cached["formats"]
+
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        try:
+            with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception as exc:
+            logger.warning(f"Could not fetch formats for '{video_id}': {exc}")
+            return []
+
+        formats = []
+        seen: set[str] = set()
+        for f in info.get("formats", []):
+            height = f.get("height")
+            if not height or not f.get("url"):
+                continue
+            if f.get("acodec") == "none":  # video-only DASH; skip (no audio)
+                continue
+            fps   = f.get("fps") or 0
+            label = f"{height}p{int(fps)}" if fps > 30 else f"{height}p"
+            if label in seen:
+                continue
+            seen.add(label)
+            formats.append({
+                "format_id": f["format_id"],
+                "label":     label,
+                "height":    height,
+                "ext":       f.get("ext", "mp4"),
+            })
+
+        formats.sort(key=lambda x: x["height"], reverse=True)
+
+        _format_cache[video_id] = {
+            "expires_at": time.monotonic() + _FORMAT_TTL,
+            "formats":    formats,
+            "url_map":    {f["format_id"]: f["url"] for f in info.get("formats", []) if f.get("url")},
+        }
+        return formats
+
+    def get_local_formats(self, video_id: str) -> list[dict]:
+        video = self.database_handler.get_video_from_videos(video_id=video_id)
+        if not video or not video.is_downloaded:
+            return []
+        formats = [{"format_id": "original", "label": "Original", "height": 0, "ext": "mp4"}]
+        for v in (video.variants or []):
+            formats.append({
+                "format_id": f"{v['height']}p",
+                "label":     v["label"],
+                "height":    v["height"],
+                "ext":       "mp4",
+            })
+        return formats
+
+    def stream_video(self, video_id: str, start: int, end: int, format_id: str | None = None):
         video = self.database_handler.get_video_from_videos(video_id=video_id)
 
         if video and video.is_downloaded and video.download_path and os.path.exists(video.download_path):
+            if format_id and format_id != "original":
+                for v in (video.variants or []):
+                    if f"{v['height']}p" == format_id:
+                        vpath = v.get("path", "")
+                        if vpath and os.path.exists(vpath):
+                            return self._stream_local(vpath, start, end)
+                        break
             return self._stream_local(video.download_path, start, end)
 
-        return self._stream_youtube(video_id, start, end)
+        return self._stream_youtube(video_id, start, end, format_id=format_id)
 
     def _stream_local(self, file_path: str, start: int, end: int):
         file_size = Path(file_path).stat().st_size
@@ -54,22 +121,31 @@ class VideosHandler:
 
         return _gen()
 
-    def _stream_youtube(self, video_id: str, start: int, end: int):
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        ydl_opts = {"quiet": True, "format": "best[ext=mp4]/best"}
+    def _stream_youtube(self, video_id: str, start: int, end: int, format_id: str | None = None):
+        stream_url = None
 
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-            stream_url = info["url"]
-        except Exception as exc:
-            logger.warning(f"Could not resolve YouTube stream for '{video_id}': {exc}")
+        # Use cached URL if format_id was resolved by get_formats() earlier
+        if format_id:
+            cached = _format_cache.get(video_id)
+            if cached and time.monotonic() < cached["expires_at"]:
+                stream_url = cached["url_map"].get(format_id)
 
-            async def _empty():
-                return
-                yield  # make it a generator
+        if not stream_url:
+            url      = f"https://www.youtube.com/watch?v={video_id}"
+            fmt      = format_id if format_id else "best[ext=mp4]/best"
+            ydl_opts = {"quiet": True, "format": fmt}
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=False)
+                stream_url = info["url"]
+            except Exception as exc:
+                logger.warning(f"Could not resolve YouTube stream for '{video_id}': {exc}")
 
-            return _empty()
+                async def _empty():
+                    return
+                    yield
+
+                return _empty()
 
         headers: dict = {}
         if start or end:

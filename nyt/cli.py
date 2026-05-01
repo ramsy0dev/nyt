@@ -82,6 +82,9 @@ def _watcher_loop(delay_minutes: int) -> None:
         watcher_state.running = True
         try:
             classes.nyt.watch()
+            cfg = ConfigManager().load_config()
+            if cfg.AUTO_DELETE_WATCHED_DAYS > 0:
+                classes.nyt.cleanup_watched_videos(cfg.AUTO_DELETE_WATCHED_DAYS)
             watcher_state.last_run = datetime.now(timezone.utc)
             watcher_state.error    = None
         except Exception as e:
@@ -119,6 +122,34 @@ def cmd_serve(args) -> None:
 
 
 def cmd_superuser(args) -> None:
+    if args.disable:
+        import getpass
+        cfg = config_manager.load_config()
+        if not cfg.ADMIN_USERNAME:
+            logger.info("Authentication is not currently enabled.")
+            return
+        print(f"Confirm identity for admin '{cfg.ADMIN_USERNAME}'")
+        try:
+            username = input("Username: ").strip()
+            password = getpass.getpass("Password: ")
+        except (KeyboardInterrupt, EOFError):
+            print()
+            logger.info("Aborted.")
+            return
+        pw_hash = hashlib.pbkdf2_hmac(
+            "sha256", password.encode(), cfg.ADMIN_SALT.encode(), 200_000
+        ).hex()
+        if username != cfg.ADMIN_USERNAME or pw_hash != cfg.ADMIN_PASSWORD_HASH:
+            logger.error("Incorrect credentials. Authentication NOT disabled.")
+            sys.exit(1)
+        config_manager.save_auth("", "", "")
+        logger.info("Authentication disabled. Restart the server to apply.")
+        return
+
+    if not args.username or not args.password:
+        logger.error("--username and --password are required (or use --disable to turn off auth)")
+        sys.exit(1)
+
     salt    = secrets.token_hex(16)
     pw_hash = hashlib.pbkdf2_hmac(
         "sha256",
@@ -164,8 +195,10 @@ def build_parser() -> argparse.ArgumentParser:
                          help=f"Global watcher interval (default: {config.WATCH_DELAY_MINUTES} min)")
 
     p_super = sub.add_parser("superuser", help="Configure admin credentials for the web UI")
-    p_super.add_argument("--username", required=True, metavar="USERNAME")
-    p_super.add_argument("--password", required=True, metavar="PASSWORD")
+    p_super.add_argument("--username", metavar="USERNAME", default=None)
+    p_super.add_argument("--password", metavar="PASSWORD", default=None)
+    p_super.add_argument("--disable", action="store_true",
+                         help="Disable authentication (prompts for current credentials to confirm)")
 
     return parser
 

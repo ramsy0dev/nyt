@@ -48,20 +48,10 @@
       z-index: 100;
     }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-    }
-
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .logo img { height: 38px; width: auto; display: block; }
 
-    .nav-center {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-    }
+    .nav-center { display: flex; align-items: center; gap: 24px; }
 
     .nav-link {
       font-family: var(--font-hand);
@@ -73,13 +63,9 @@
       transition: opacity 0.15s;
     }
 
-    .nav-link:hover, .nav-link.active { opacity: 1; }
+    .nav-link:hover { opacity: 1; }
 
-    .nav-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
 
     #btn-logout {
       background: none;
@@ -121,14 +107,8 @@
       outline: none;
     }
 
-    .back:hover {
-      color: var(--ink);
-      border-color: var(--ink);
-      background: var(--surface);
-    }
-
+    .back:hover { color: var(--ink); border-color: var(--ink); background: var(--surface); }
     .back:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
-
     .back svg { flex-shrink: 0; }
 
     /* ── PLAYER FRAME ──────────────────────────────────── */
@@ -140,6 +120,7 @@
       overflow: hidden;
       width: 100%;
       aspect-ratio: 16 / 9;
+      position: relative;
     }
 
     video {
@@ -149,13 +130,153 @@
       outline: none;
     }
 
+    /* ── SUBTITLE STYLING ──────────────────────────────── */
+    ::cue {
+      font-family: var(--font-body);
+      font-size: 1.05em;
+      font-weight: 600;
+      background: rgba(45, 43, 38, 0.80);
+      color: #fffdf8;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    /* ── RESUME BANNER ─────────────────────────────────── */
+    #resume-banner {
+      position: absolute;
+      bottom: 56px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: rgba(45,43,38,0.88);
+      color: #fffdf8;
+      font-family: var(--font-hand);
+      font-size: 17px;
+      padding: 8px 20px;
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 10;
+    }
+
+    #resume-banner.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── BELOW PLAYER ──────────────────────────────────── */
+    .player-meta {
+      margin-top: 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
     .video-title {
-      margin-top: 18px;
       font-family: var(--font-hand);
       font-size: 26px;
       font-weight: 700;
       color: var(--ink);
       line-height: 1.3;
+      flex: 1;
+    }
+
+    /* ── QUALITY SELECTOR ──────────────────────────────── */
+    .quality-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .quality-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    #quality-select {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: 8px 5px 10px 6px / 6px 10px 5px 8px;
+      padding: 5px 10px;
+      cursor: pointer;
+      outline: none;
+      box-shadow: 3px 3px 0 var(--shadow);
+      transition: border-color 0.15s;
+    }
+
+    #quality-select:focus { border-color: var(--coral); }
+    #quality-select:disabled { opacity: 0.45; cursor: default; }
+
+    .quality-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2.5px solid var(--shadow);
+      border-top-color: var(--coral);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    .quality-spinner.show { display: block; }
+
+    /* ── CHAPTER BAR ───────────────────────────────────── */
+    #chapter-wrap {
+      margin-top: 18px;
+      display: none;
+    }
+
+    #chapter-bar-track {
+      position: relative;
+      height: 10px;
+      background: var(--shadow);
+      border-radius: 5px;
+      border: 1.5px solid rgba(45,43,38,0.2);
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .ch-seg {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: var(--ink);
+      opacity: 0.18;
+      border-right: 2px solid var(--surface);
+      transition: opacity 0.15s;
+    }
+
+    .ch-seg:last-child { border-right: none; }
+    .ch-seg:hover { opacity: 0.5; }
+    .ch-seg.active { background: var(--coral); opacity: 1; }
+
+    #chapter-info {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 7px;
+    }
+
+    #chapter-label {
+      font-family: var(--font-hand);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    #chapter-index {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     /* ── LOADING ───────────────────────────────────────── */
@@ -194,13 +315,7 @@
       padding: 0 20px;
     }
 
-    .state-icon {
-      width: 56px;
-      height: 56px;
-      margin-bottom: 4px;
-      color: var(--muted);
-    }
-
+    .state-icon { width: 56px; height: 56px; margin-bottom: 4px; color: var(--muted); }
     .state-icon.coral { color: var(--coral); }
 
     .state h2 {
@@ -244,15 +359,8 @@
       transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
 
-    .btn-home:hover {
-      transform: translateY(-2px);
-      box-shadow: 6px 6px 0 var(--ink);
-    }
-
-    .btn-home:active {
-      transform: translateY(2px);
-      box-shadow: 2px 2px 0 var(--ink);
-    }
+    .btn-home:hover  { transform: translateY(-2px); box-shadow: 6px 6px 0 var(--ink); }
+    .btn-home:active { transform: translateY(2px);  box-shadow: 2px 2px 0 var(--ink); }
   </style>
 </head>
 <body>
@@ -282,6 +390,7 @@
 <script>
   const root = document.getElementById('root');
 
+  // ── Helpers ──────────────────────────────────────────
   async function apiFetch(url, opts = {}) {
     const res = await fetch(url, opts);
     if (res.status === 401) { window.location.replace('/login'); throw new Error('unauthenticated'); }
@@ -294,6 +403,7 @@
   }
 
   async function checkAuth() {
+    try { await fetch('/api/v1/auth/refresh', { method: 'POST' }); } catch {}
     try {
       const res = await fetch('/api/v1/auth/status');
       if (!res.ok) return;
@@ -308,20 +418,29 @@
     return d.innerHTML;
   }
 
-  function showLoading() {
-    root.innerHTML = `<div class="loading-wrap"><div class="spinner"></div></div>`;
+  function fmtTime(secs) {
+    secs = Math.floor(secs);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      : `${m}:${String(s).padStart(2,'0')}`;
   }
 
-  function showPlayer(videoId, title) {
-    const src = `/api/v1/videos/${encodeURIComponent(videoId)}`;
-    root.innerHTML = `
-      <div class="player-frame">
-        <video controls autoplay preload="metadata">
-          <source src="${src}" type="video/mp4">
-          Your browser does not support the video tag.
-        </video>
-      </div>
-      ${title ? `<div class="video-title">${esc(title)}</div>` : ''}`;
+  // Language code → display name map
+  const LANG_NAMES = {
+    en:'English', 'en-US':'English (US)', 'en-GB':'English (UK)',
+    es:'Spanish', fr:'French', de:'German', it:'Italian',
+    pt:'Portuguese', ru:'Russian', ja:'Japanese', ko:'Korean',
+    zh:'Chinese', ar:'Arabic', hi:'Hindi', nl:'Dutch', sv:'Swedish',
+    pl:'Polish', tr:'Turkish', uk:'Ukrainian', cs:'Czech',
+  };
+  const langLabel = l => LANG_NAMES[l] || LANG_NAMES[l.split('-')[0]] || l;
+
+  // ── State management ──────────────────────────────────
+  function showLoading() {
+    root.innerHTML = `<div class="loading-wrap"><div class="spinner"></div></div>`;
   }
 
   function showNotFound(videoId) {
@@ -346,8 +465,213 @@
     lucide.createIcons();
   }
 
+  // ── Resume playback ───────────────────────────────────
+  const _RESUME_KEY = id => `nyt_pos_${id}`;
+  let _saveTimer = null;
+
+  function savePosition(videoEl, videoId) {
+    if (videoEl.currentTime > 2) {
+      localStorage.setItem(_RESUME_KEY(videoId), String(videoEl.currentTime));
+    }
+  }
+
+  function clearPosition(videoId) {
+    localStorage.removeItem(_RESUME_KEY(videoId));
+  }
+
+  function getSavedPosition(videoId) {
+    return parseFloat(localStorage.getItem(_RESUME_KEY(videoId)) || '0') || 0;
+  }
+
+  function attachResume(videoEl, videoId) {
+    const banner = document.getElementById('resume-banner');
+    const saved  = getSavedPosition(videoId);
+
+    videoEl.addEventListener('canplay', () => {
+      if (saved > 5 && Math.abs(videoEl.currentTime - saved) > 2) {
+        videoEl.currentTime = saved;
+        if (banner) {
+          banner.textContent = `Resuming from ${fmtTime(saved)}`;
+          banner.classList.add('show');
+          setTimeout(() => banner.classList.remove('show'), 2800);
+        }
+      }
+    }, { once: true });
+
+    videoEl.addEventListener('timeupdate', () => {
+      clearTimeout(_saveTimer);
+      _saveTimer = setTimeout(() => savePosition(videoEl, videoId), 5000);
+    });
+
+    videoEl.addEventListener('ended', () => clearPosition(videoId));
+    videoEl.addEventListener('pause', () => savePosition(videoEl, videoId));
+    window.addEventListener('beforeunload', () => savePosition(videoEl, videoId));
+  }
+
+  // ── Quality selector ──────────────────────────────────
+  let _currentFormatId = null;
+
+  function buildSrc(videoId, formatId) {
+    const base = `/api/v1/videos/${encodeURIComponent(videoId)}`;
+    return formatId ? `${base}?format_id=${encodeURIComponent(formatId)}` : base;
+  }
+
+  async function loadFormats(videoId) {
+    const wrap    = document.getElementById('quality-wrap');
+    const sel     = document.getElementById('quality-select');
+    const spinner = document.getElementById('quality-spinner');
+    if (!wrap || !sel) return;
+
+    spinner.classList.add('show');
+    sel.disabled = true;
+
+    try {
+      const res = await apiFetch(`/api/v1/videos/${encodeURIComponent(videoId)}/formats`);
+      if (!res.ok) { wrap.style.display = 'none'; return; }
+      const { formats, is_local } = await res.json();
+
+      if (!formats || formats.length === 0 || (is_local && formats.length <= 1)) {
+        wrap.style.display = 'none';
+        return;
+      }
+
+      sel.innerHTML = formats.map(f =>
+        `<option value="${esc(f.format_id)}">${esc(f.label)}</option>`
+      ).join('');
+
+      _currentFormatId = formats[0].format_id;
+      sel.value        = _currentFormatId;
+      sel.disabled     = false;
+    } catch {
+      wrap.style.display = 'none';
+    } finally {
+      spinner.classList.remove('show');
+    }
+  }
+
+  function attachQualitySelector(videoId) {
+    const sel = document.getElementById('quality-select');
+    if (!sel) return;
+
+    sel.addEventListener('change', () => {
+      const videoEl = document.querySelector('video');
+      if (!videoEl) return;
+      const pos = videoEl.currentTime;
+      _currentFormatId = sel.value;
+      videoEl.src = buildSrc(videoId, _currentFormatId);
+      videoEl.load();
+      videoEl.addEventListener('canplay', () => {
+        videoEl.currentTime = pos;
+        videoEl.play();
+      }, { once: true });
+    });
+  }
+
+  // ── Chapter bar ───────────────────────────────────────
+  function attachChapters(videoEl, chapters) {
+    if (!chapters || chapters.length === 0) return;
+
+    const wrap  = document.getElementById('chapter-wrap');
+    const track = document.getElementById('chapter-bar-track');
+    const label = document.getElementById('chapter-label');
+    const idx   = document.getElementById('chapter-index');
+    if (!wrap || !track) return;
+
+    const dur = chapters[chapters.length - 1].end_time;
+    if (!dur || dur <= 0) return;
+
+    // Build segments
+    track.innerHTML = chapters.map((ch, i) => {
+      const left  = ((ch.start_time / dur) * 100).toFixed(4);
+      const width = (((ch.end_time - ch.start_time) / dur) * 100).toFixed(4);
+      return `<div class="ch-seg" data-idx="${i}" data-start="${ch.start_time}"
+                   style="left:${left}%;width:${width}%;" title="${esc(ch.title)}"></div>`;
+    }).join('');
+
+    wrap.style.display = '';
+
+    // Click to seek
+    track.querySelectorAll('.ch-seg').forEach(seg => {
+      seg.addEventListener('click', () => {
+        videoEl.currentTime = parseFloat(seg.dataset.start);
+        videoEl.play();
+      });
+    });
+
+    // Sync active chapter on timeupdate
+    videoEl.addEventListener('timeupdate', () => {
+      const t    = videoEl.currentTime;
+      let active = null;
+      track.querySelectorAll('.ch-seg').forEach((seg, i) => {
+        const start = parseFloat(seg.dataset.start);
+        const end   = i < chapters.length - 1 ? chapters[i + 1].start_time : Infinity;
+        const on    = t >= start && t < end;
+        seg.classList.toggle('active', on);
+        if (on) active = i;
+      });
+      if (active !== null) {
+        if (label) label.textContent = chapters[active].title;
+        if (idx)   idx.textContent   = `Chapter ${active + 1} of ${chapters.length}`;
+      } else {
+        if (label) label.textContent = '';
+        if (idx)   idx.textContent   = '';
+      }
+    });
+  }
+
+  // ── Subtitles ─────────────────────────────────────────
+  function attachSubtitles(videoEl, videoId, subtitles) {
+    if (!subtitles || subtitles.length === 0) return;
+    subtitles.forEach((sub, i) => {
+      const track = document.createElement('track');
+      track.kind    = 'subtitles';
+      track.src     = `/api/v1/videos/${encodeURIComponent(videoId)}/subtitles/${encodeURIComponent(sub.lang)}`;
+      track.srclang = sub.lang.split('-')[0];
+      track.label   = langLabel(sub.lang);
+      if (i === 0) track.default = true;
+      videoEl.appendChild(track);
+    });
+  }
+
+  // ── Player ────────────────────────────────────────────
+  function showPlayer(videoId, title, qualityEnabled) {
+    const src = buildSrc(videoId, null);
+    root.innerHTML = `
+      <div class="player-frame">
+        <video controls autoplay preload="metadata">
+          <source src="${esc(src)}" type="video/mp4">
+        </video>
+        <div id="resume-banner"></div>
+      </div>
+      <div id="chapter-wrap">
+        <div id="chapter-bar-track"></div>
+        <div id="chapter-info">
+          <span id="chapter-label"></span>
+          <span id="chapter-index"></span>
+        </div>
+      </div>
+      <div class="player-meta">
+        ${title ? `<div class="video-title">${esc(title)}</div>` : '<div></div>'}
+        <div class="quality-wrap" id="quality-wrap" style="${qualityEnabled ? '' : 'display:none'}">
+          <span class="quality-label">Quality</span>
+          <div class="quality-spinner" id="quality-spinner"></div>
+          <select id="quality-select" disabled>
+            <option>Loading…</option>
+          </select>
+        </div>
+      </div>`;
+
+    const videoEl = document.querySelector('video');
+    attachResume(videoEl, videoId);
+
+    if (qualityEnabled) {
+      loadFormats(videoId).then(() => attachQualitySelector(videoId));
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────
   async function init() {
-    const parts = window.location.pathname.split('/watch/');
+    const parts   = window.location.pathname.split('/watch/');
     const videoId = parts.length > 1 ? parts[1].split('/')[0] : null;
 
     if (!videoId) { window.location.replace('/'); return; }
@@ -355,22 +679,50 @@
     showLoading();
 
     try {
-      const statusRes = await apiFetch(`/api/v1/videos/${encodeURIComponent(videoId)}/status`);
+      const [statusRes, settingsRes] = await Promise.all([
+        apiFetch(`/api/v1/videos/${encodeURIComponent(videoId)}/status`),
+        fetch('/api/v1/settings').catch(() => null),
+      ]);
+
       if (!statusRes.ok) throw new Error();
       const { video_status } = await statusRes.json();
-
       if (!video_status.is_present) { showNotFound(videoId); return; }
 
-      let title = null;
-      try {
-        const listRes = await apiFetch('/api/v1/videos/list/');
-        if (listRes.ok) {
-          const { videos_info } = await listRes.json();
-          title = videos_info?.find(v => v.video_id === videoId)?.video_title ?? null;
-        }
-      } catch { /* title is optional */ }
+      let qualityEnabled = false;
+      if (settingsRes && settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        const s = settingsData.settings ?? {};
+        qualityEnabled = !!(s.quality_selection_enabled || s.transcoding_enabled);
+      }
 
-      showPlayer(videoId, title);
+      // Fetch title and metadata in parallel
+      let title     = null;
+      let subtitles = [];
+      let chapters  = [];
+
+      const [listRes, metaRes] = await Promise.all([
+        apiFetch('/api/v1/videos/list/').catch(() => null),
+        apiFetch(`/api/v1/videos/${encodeURIComponent(videoId)}/metadata`).catch(() => null),
+      ]);
+
+      if (listRes && listRes.ok) {
+        const { videos_info } = await listRes.json();
+        title = videos_info?.find(v => v.video_id === videoId)?.video_title ?? null;
+      }
+
+      if (metaRes && metaRes.ok) {
+        const meta = await metaRes.json();
+        subtitles = meta.subtitles || [];
+        chapters  = meta.chapters  || [];
+      }
+
+      showPlayer(videoId, title, qualityEnabled);
+      lucide.createIcons();
+
+      const videoEl = document.querySelector('video');
+      attachSubtitles(videoEl, videoId, subtitles);
+      attachChapters(videoEl, chapters);
+
     } catch (e) {
       if (e.message !== 'unauthenticated') showError();
     }

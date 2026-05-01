@@ -671,6 +671,7 @@
   }
 
   async function checkAuth() {
+    try { await fetch('/api/v1/auth/refresh', { method: 'POST' }); } catch {}
     try {
       const res = await fetch('/api/v1/auth/status');
       if (!res.ok) return;
