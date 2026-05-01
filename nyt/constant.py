@@ -1,5 +1,5 @@
 PACKAGE = "nyt"
-VERSION = "v0.1.2"
+VERSION = "v0.2.2"
 AUTHOR  = "ramsy0dev"
 
 CHANNEL_ALREADY_TRACKED = 1
