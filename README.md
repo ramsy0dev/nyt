@@ -1,86 +1,148 @@
 <div align="center">
 
-<img src="assets/nyt-high-resolution-logo.png" width=600 />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="nyt/static/logo.svg">
+  <img src="nyt/static/logo-dark.png" alt="nyt" width="260">
+</picture>
 
-**nyt** is short for **No YouTube**
+<br><br>
+
+**No YouTube.** Track channels, download videos locally, watch on your own terms.
+
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square)](https://python.org)
+[![License](https://img.shields.io/badge/license-GPL--3.0-coral?style=flat-square)](LICENSE)
 
 </div>
 
-# Table of content
+---
 
-- [Table of content](#table-of-content)
-- [Introduction](#introduction)
-- [Why?](#why)
-- [Install](#install)
-- [How to Use?](#how-to-use)
-- [Directories used by nyt](#directories-used-by-nyt)
-- [License](#license)
+**nyt** is a self-hosted YouTube channel tracker. It monitors the channels you care about, downloads new videos the moment they appear, and serves them through a clean web interface — no algorithm, no recommendations, no distractions. Just your subscriptions.
 
-# Introduction
+## Features
 
-**nyt** is program made for people who are finding themselves stuck at **YouTube** all the time, this will help them keep of YouTube and getting notified when their favorite channel uploaded, this includes downloading the video locally so that you don't get distracted by the recommendation system.
+- **Track channels** from the web UI or the CLI
+- **Auto-download** new uploads as they appear, or enable stream-only mode to save bandwidth and stream on demand
+- **Built-in player** — no third-party embeds, videos served directly from your machine
+- **Channel management UI** — search YouTube, add/remove channels, set per-channel check intervals
+- **Admin authentication** — optional password protection for your instance
+- **Desktop notifications** on new uploads (Linux, macOS, Windows)
+- **No FFmpeg required** — downloads the best pre-merged format available
+- Single binary-style install via pip — no Node.js, no Docker, no build step
 
-# Why?
+## Requirements
 
-If one thing **YouTube** is really good at, it will be video recommendations system that keep you hooked on **YouTube** for hours without realising the amount of time you just wasted.
+- Python 3.11 or newer
 
-# Install
+## Install
 
-You can install nyt using `pip`:
-
-``` bash
+```bash
 pip install git+https://github.com/ramsy0dev/nyt.git
 ```
 
-You will also need `ffmpeg` for video and audio processing, for windows:
+Add your API key to `~/.nyt/nyt.toml` after the first run (the file is created automatically):
 
-``` bash
-winget install ffmpeg
+```toml
+# nyt.toml is generated on first launch — add your key here
 ```
 
-for Linux you can use your package manager:
+> The API key goes in `nyt/constant.py` for now. A proper config field is on the roadmap.
 
-* ### Pacman:
+## Usage
 
-``` bash
-sudo pacman -S ffmpeg
-```
-
-* ### Debian based distros:
-
-``` bash
-sudo apt install ffmpeg
-```
-
-# How to Use?
-
-You can start by adding the channels that you want to keep track of, for example let say you watch Linus tech tips alot, you can add it like so:
-
-``` bash
-nyt track --channel-handle "LinusTechTips"
-```
-
-> __NOTE__: we don't add '@' to the channel's handel.
-
-After you are done adding them, you can start the watcher that will be running in loop checking for new videos, of course it has a delay with the default being 30 minute. You can start the watcher like so:
+### Track a channel
 
 ```bash
-nyt watch
+nyt track --channel-handle LinusTechTips
 ```
 
-if you want debug mode enabled:
+Do not include the `@`. To stop tracking:
 
 ```bash
-nyt watch --debug-mode
+nyt remove --channel-handle LinusTechTips
 ```
 
-After **nyt** finds that one of the tracked channels has uploaded a video it will send a notification and then it will download the video locally to `$HOME/.nyt/videos` (`$UserProfile\.nyt\videos` for Windows) so that you can watch it without having to open **YouTube**.
+### Start the server
 
-# Directories used by nyt
+`nyt serve` starts the web UI, the REST API, and the background watcher in one command:
 
-**nyt** creates a dir at `$HOME/.nyt` for linux, and `$UserProfile\\.nyt` for Windows.
-this directory is where it keeps the sqlite database and a subdir called `videos` for downloading the **YouTube** videos.
+```bash
+nyt serve
+```
 
-# License
+Then open [http://localhost:9473](http://localhost:9473).
 
-GPL-3.0
+```bash
+# Custom host / port / watcher interval
+nyt serve --host 0.0.0.0 --port 8080 --delay 120
+```
+
+The watcher runs in a background thread and checks each channel on its own schedule. The default interval is **60 minutes** and can be overridden per channel from the web UI.
+
+### Secure your instance
+
+Set admin credentials before exposing nyt on a network:
+
+```bash
+nyt superuser --username admin --password yourpassword
+```
+
+Restart the server after running this. All pages will redirect to a login screen until authenticated. The session is cookie-based and lasts 30 days.
+
+### Run the watcher standalone
+
+If you only want the download loop without the web interface:
+
+```bash
+nyt watch --delay 60
+```
+
+## Web UI
+
+| Page | Description |
+|------|-------------|
+| **/** | Video grid — sort by date or channel, filter unwatched, mark watched |
+| **/watch/:id** | Video player — streams directly from your local library |
+| **/channels** | Channel management — search YouTube, add/remove channels, set download mode and poll interval |
+| **/login** | Auth page — only shown when a superuser is configured |
+
+**Stream-only mode** — per channel, you can disable auto-download. New videos are listed in the grid but not stored locally. Clicking play streams the video from YouTube on demand through the nyt server. Toggle it from the Channels page.
+
+## Storage
+
+Everything lives under `~/.nyt/` (Linux / macOS) or `%UserProfile%\.nyt\` (Windows):
+
+| Path | Contents |
+|------|----------|
+| `nyt.toml` | Configuration |
+| `nyt.db` | SQLite database |
+| `nyt.log` | Log file (rotating, 10 MB max) |
+| `videos/` | Downloaded video files |
+| `avatars/` | Cached channel avatar images |
+| `assets/` | nyt logo assets |
+
+## Configuration
+
+`~/.nyt/nyt.toml` is created automatically on first run. Relevant fields:
+
+```toml
+[nyt]
+videos_prefix_directory = "/home/user/.nyt/videos"
+
+[nyt.api]
+host = "localhost"
+port = "9473"
+
+[nyt.watcher]
+watch_delay_minutes = 60
+
+[nyt.auth]
+admin_username      = ""
+admin_password_hash = ""
+admin_salt          = ""
+```
+
+Auth fields are managed by `nyt superuser` — edit them manually at your own risk.
+
+## License
+
+[GPL-3.0](LICENSE) — do whatever you want with it, just keep it open.

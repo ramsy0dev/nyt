@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nyt — Watch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #fef6e4;
+      --surface:   #fffdf8;
+      --ink:       #2d2b26;
+      --shadow:    #e0c898;
+      --coral:     #f4845f;
+      --coral-bg:  #fde8e0;
+      --muted:     #a09880;
+      --font-hand: 'Caveat', cursive;
+      --font-body: 'Nunito', sans-serif;
+      --radius-card: 14px 8px 16px 10px / 10px 16px 8px 14px;
+      --radius-pill: 50px 40px 48px 44px / 42px 50px 40px 46px;
+    }
+
+    html, body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle, #d9c9a3 1.2px, transparent 1.2px);
+      background-size: 26px 26px;
+      color: var(--ink);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ───────────────────────────────────────────── */
+    nav {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--ink);
+      border-bottom: 2.5px solid var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo img { height: 38px; width: auto; display: block; }
+
+    .nav-center {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .nav-link {
+      font-family: var(--font-hand);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--surface);
+      text-decoration: none;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+
+    .nav-link:hover, .nav-link.active { opacity: 1; }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #btn-logout {
+      background: none;
+      border: 1.5px solid var(--shadow);
+      color: var(--surface);
+      font-family: var(--font-hand);
+      font-size: 16px;
+      padding: 4px 14px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.15s;
+    }
+
+    #btn-logout:hover { opacity: 1; }
+
+    /* ── CONTENT ───────────────────────────────────────── */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 22px 72px;
+    }
+
+    /* ── BACK BUTTON ───────────────────────────────────── */
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-hand);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 4px 16px 4px 12px;
+      border: 2px solid var(--muted);
+      border-radius: var(--radius-pill);
+      margin-bottom: 24px;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      outline: none;
+    }
+
+    .back:hover {
+      color: var(--ink);
+      border-color: var(--ink);
+      background: var(--surface);
+    }
+
+    .back:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+
+    .back svg { flex-shrink: 0; }
+
+    /* ── PLAYER FRAME ──────────────────────────────────── */
+    .player-frame {
+      background: var(--ink);
+      border: 3px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 7px 7px 0 var(--shadow);
+      overflow: hidden;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      display: block;
+      outline: none;
+    }
+
+    .video-title {
+      margin-top: 18px;
+      font-family: var(--font-hand);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+
+    /* ── LOADING ───────────────────────────────────────── */
+    .loading-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 5px 5px 0 var(--shadow);
+    }
+
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border: 3.5px solid #e8dfc8;
+      border-top-color: var(--coral);
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── STATES ────────────────────────────────────────── */
+    .state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 50vh;
+      text-align: center;
+      gap: 12px;
+      padding: 0 20px;
+    }
+
+    .state-icon {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 4px;
+      color: var(--muted);
+    }
+
+    .state-icon.coral { color: var(--coral); }
+
+    .state h2 {
+      font-family: var(--font-hand);
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--coral);
+    }
+
+    .state p {
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 600;
+      line-height: 1.7;
+      max-width: 340px;
+    }
+
+    code {
+      font-family: var(--font-hand);
+      font-size: 15px;
+      color: var(--ink);
+      background: #fff3cd;
+      border: 2px solid var(--ink);
+      border-radius: 6px;
+      padding: 1px 8px;
+    }
+
+    .btn-home {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 8px 24px;
+      font-family: var(--font-hand);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--surface);
+      background: var(--coral);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-pill);
+      box-shadow: 4px 4px 0 var(--ink);
+      text-decoration: none;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .btn-home:hover {
+      transform: translateY(-2px);
+      box-shadow: 6px 6px 0 var(--ink);
+    }
+
+    .btn-home:active {
+      transform: translateY(2px);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">
+    <img src="/static/logo.svg" alt="nyt">
+  </a>
+  <div class="nav-center">
+    <a href="/" class="nav-link">Videos</a>
+    <a href="/channels" class="nav-link">Channels</a>
+    <a href="/settings" class="nav-link">Settings</a>
+  </div>
+  <div class="nav-right">
+    <button id="btn-logout" style="display:none" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="container">
+  <a href="/" class="back">
+    <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
+    Back
+  </a>
+  <div id="root"></div>
+</div>
+
+<script>
+  const root = document.getElementById('root');
+
+  async function apiFetch(url, opts = {}) {
+    const res = await fetch(url, opts);
+    if (res.status === 401) { window.location.replace('/login'); throw new Error('unauthenticated'); }
+    return res;
+  }
+
+  async function logout() {
+    await fetch('/api/v1/auth/logout', { method: 'POST' });
+    window.location.replace('/login');
+  }
+
+  async function checkAuth() {
+    try {
+      const res = await fetch('/api/v1/auth/status');
+      if (!res.ok) return;
+      const { auth_enabled, logged_in } = await res.json();
+      if (auth_enabled && logged_in) document.getElementById('btn-logout').style.display = '';
+    } catch { /* non-critical */ }
+  }
+
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = String(str ?? '');
+    return d.innerHTML;
+  }
+
+  function showLoading() {
+    root.innerHTML = `<div class="loading-wrap"><div class="spinner"></div></div>`;
+  }
+
+  function showPlayer(videoId, title) {
+    const src = `/api/v1/videos/${encodeURIComponent(videoId)}`;
+    root.innerHTML = `
+      <div class="player-frame">
+        <video controls autoplay preload="metadata">
+          <source src="${src}" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+      ${title ? `<div class="video-title">${esc(title)}</div>` : ''}`;
+  }
+
+  function showNotFound(videoId) {
+    root.innerHTML = `
+      <div class="state">
+        <i data-lucide="film" class="state-icon coral"></i>
+        <h2>Video not found</h2>
+        <p>No video with id <code>${esc(videoId)}</code> exists in the library.</p>
+        <a href="/" class="btn-home">Go Home</a>
+      </div>`;
+    lucide.createIcons();
+  }
+
+  function showError() {
+    root.innerHTML = `
+      <div class="state">
+        <i data-lucide="wifi-off" class="state-icon coral"></i>
+        <h2>Can't reach the server</h2>
+        <p>Start the backend with <code>nyt serve</code></p>
+        <a href="/" class="btn-home">Go Home</a>
+      </div>`;
+    lucide.createIcons();
+  }
+
+  async function init() {
+    const parts = window.location.pathname.split('/watch/');
+    const videoId = parts.length > 1 ? parts[1].split('/')[0] : null;
+
+    if (!videoId) { window.location.replace('/'); return; }
+
+    showLoading();
+
+    try {
+      const statusRes = await apiFetch(`/api/v1/videos/${encodeURIComponent(videoId)}/status`);
+      if (!statusRes.ok) throw new Error();
+      const { video_status } = await statusRes.json();
+
+      if (!video_status.is_present) { showNotFound(videoId); return; }
+
+      let title = null;
+      try {
+        const listRes = await apiFetch('/api/v1/videos/list/');
+        if (listRes.ok) {
+          const { videos_info } = await listRes.json();
+          title = videos_info?.find(v => v.video_id === videoId)?.video_title ?? null;
+        }
+      } catch { /* title is optional */ }
+
+      showPlayer(videoId, title);
+    } catch (e) {
+      if (e.message !== 'unauthenticated') showError();
+    }
+  }
+
+  lucide.createIcons();
+  checkAuth();
+  init();
+</script>
+
+</body>
+</html>

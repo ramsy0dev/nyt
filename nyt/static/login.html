@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nyt — Sign in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #fef6e4;
+      --surface:   #fffdf8;
+      --ink:       #2d2b26;
+      --shadow:    #e0c898;
+      --coral:     #f4845f;
+      --coral-bg:  #fde8e0;
+      --muted:     #a09880;
+      --font-hand: 'Caveat', cursive;
+      --font-body: 'Nunito', sans-serif;
+      --radius-card: 14px 8px 16px 10px / 10px 16px 8px 14px;
+      --radius-pill: 50px 40px 48px 44px / 42px 50px 40px 46px;
+    }
+
+    html, body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle, #d9c9a3 1.2px, transparent 1.2px);
+      background-size: 26px 26px;
+      color: var(--ink);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 400px;
+      margin: 24px 16px;
+      background: var(--surface);
+      border: 3px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 7px 7px 0 var(--shadow);
+      padding: 40px 36px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .logo-img {
+      height: 56px;
+      width: auto;
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    .tagline {
+      font-family: var(--font-hand);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .form {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field label {
+      font-family: var(--font-hand);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .field input {
+      padding: 10px 16px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      background: var(--bg);
+      border: 2.5px solid var(--ink);
+      border-radius: 10px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .field input::placeholder { color: var(--muted); }
+
+    .field input:focus {
+      border-color: var(--coral);
+      box-shadow: 3px 3px 0 var(--shadow);
+    }
+
+    .btn-signin {
+      width: 100%;
+      margin-top: 8px;
+      padding: 12px;
+      font-family: var(--font-hand);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--surface);
+      background: var(--coral);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-pill);
+      box-shadow: 4px 4px 0 var(--ink);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+
+    .btn-signin:hover { transform: translateY(-2px); box-shadow: 6px 6px 0 var(--ink); }
+    .btn-signin:active { transform: translateY(1px); box-shadow: 2px 2px 0 var(--ink); }
+    .btn-signin:disabled { opacity: 0.55; pointer-events: none; }
+
+    #error-msg {
+      width: 100%;
+      margin-top: 4px;
+      padding: 10px 14px;
+      background: var(--coral-bg);
+      border: 2px solid var(--coral);
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <img class="logo-img" src="/static/logo-dark.png" alt="nyt">
+  <p class="tagline">your private video library</p>
+
+  <form class="form" id="login-form" onsubmit="handleLogin(event)">
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" type="text" name="username" autocomplete="username" placeholder="admin" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
+    </div>
+    <div id="error-msg"></div>
+    <button class="btn-signin" type="submit" id="btn-signin">Sign in</button>
+  </form>
+</div>
+
+<script>
+  async function init() {
+    try {
+      const res = await fetch('/api/v1/auth/status');
+      if (!res.ok) return;
+      const { auth_enabled, logged_in } = await res.json();
+      if (!auth_enabled) { window.location.replace('/'); return; }
+      if (logged_in) { window.location.replace('/'); return; }
+    } catch { /* server down — let the form show */ }
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+
+    const btn     = document.getElementById('btn-signin');
+    const errEl   = document.getElementById('error-msg');
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+
+    btn.disabled   = true;
+    btn.textContent = 'Signing in…';
+    errEl.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/v1/auth/login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        window.location.replace('/');
+      } else {
+        errEl.textContent = data.message || 'Invalid credentials';
+        errEl.style.display = 'block';
+      }
+    } catch {
+      errEl.textContent = 'Server unreachable. Is nyt serve running?';
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled   = false;
+      btn.textContent = 'Sign in';
+    }
+  }
+
+  init();
+</script>
+
+</body>
+</html>

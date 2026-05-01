@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nyt — Channels</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #fef6e4;
+      --surface:   #fffdf8;
+      --ink:       #2d2b26;
+      --shadow:    #e0c898;
+      --coral:     #f4845f;
+      --coral-bg:  #fde8e0;
+      --muted:     #a09880;
+      --font-hand: 'Caveat', cursive;
+      --font-body: 'Nunito', sans-serif;
+      --radius-card: 14px 8px 16px 10px / 10px 16px 8px 14px;
+      --radius-pill: 50px 40px 48px 44px / 42px 50px 40px 46px;
+    }
+
+    html, body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle, #d9c9a3 1.2px, transparent 1.2px);
+      background-size: 26px 26px;
+      color: var(--ink);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ───────────────────────────────────────────── */
+    nav {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--ink);
+      border-bottom: 2.5px solid var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo img { height: 38px; width: auto; display: block; }
+
+    .nav-center { display: flex; align-items: center; gap: 24px; }
+
+    .nav-link {
+      font-family: var(--font-hand);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--surface);
+      text-decoration: none;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+
+    .nav-link:hover, .nav-link.active { opacity: 1; }
+
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+
+    #btn-logout {
+      background: none;
+      border: 1.5px solid var(--shadow);
+      color: var(--surface);
+      font-family: var(--font-hand);
+      font-size: 16px;
+      padding: 4px 14px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.15s;
+    }
+
+    #btn-logout:hover { opacity: 1; }
+
+    /* ── LAYOUT ────────────────────────────────────────── */
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 36px 22px 80px;
+    }
+
+    .section-title {
+      font-family: var(--font-hand);
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 18px;
+    }
+
+    /* ── SEARCH BOX ────────────────────────────────────── */
+    .search-wrap {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 10px 16px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-pill);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus { border-color: var(--coral); box-shadow: 3px 3px 0 var(--shadow); }
+
+    .btn-search {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 22px;
+      font-family: var(--font-hand);
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--surface);
+      background: var(--coral);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-pill);
+      box-shadow: 4px 4px 0 var(--ink);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s;
+      white-space: nowrap;
+    }
+
+    .btn-search:hover { transform: translateY(-2px); box-shadow: 6px 6px 0 var(--ink); }
+    .btn-search:active { transform: translateY(1px); box-shadow: 2px 2px 0 var(--ink); }
+    .btn-search:disabled { opacity: 0.55; pointer-events: none; }
+
+    /* ── SEARCH RESULT ─────────────────────────────────── */
+    #search-result { margin-bottom: 40px; }
+
+    .result-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 5px 5px 0 var(--shadow);
+      padding: 18px 20px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+
+    .result-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 2.5px solid var(--ink);
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--shadow);
+    }
+
+    .result-info { flex: 1; min-width: 0; }
+
+    .result-name {
+      font-family: var(--font-hand);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    .result-handle {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .result-subs {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .result-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .result-actions { margin-top: 12px; display: flex; gap: 10px; align-items: center; }
+
+    .badge-tracked {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 14px;
+      font-family: var(--font-hand);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--muted);
+      border: 2px solid var(--muted);
+      border-radius: var(--radius-pill);
+    }
+
+    .btn-track {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 20px;
+      font-family: var(--font-hand);
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--surface);
+      background: var(--coral);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-pill);
+      box-shadow: 3px 3px 0 var(--ink);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+
+    .btn-track:hover { transform: translateY(-1px); box-shadow: 5px 5px 0 var(--ink); }
+    .btn-track:active { transform: translateY(1px); box-shadow: 1px 1px 0 var(--ink); }
+    .btn-track:disabled { opacity: 0.55; pointer-events: none; }
+
+    .search-error {
+      padding: 14px 18px;
+      background: var(--coral-bg);
+      border: 2px solid var(--coral);
+      border-radius: var(--radius-card);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* ── TRACKED CHANNELS GRID ─────────────────────────── */
+    #channels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 18px;
+    }
+
+    .channel-card {
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 5px 5px 0 var(--shadow);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .channel-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .channel-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2.5px solid var(--ink);
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--shadow);
+    }
+
+    .channel-meta { flex: 1; min-width: 0; }
+
+    .channel-name {
+      font-family: var(--font-hand);
+      font-size: 21px;
+      font-weight: 700;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .channel-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .channel-handle {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .video-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 10px;
+      background: var(--coral-bg);
+      border: 1.5px solid var(--coral);
+      border-radius: var(--radius-pill);
+      font-family: var(--font-hand);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--coral);
+    }
+
+    .channel-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .delay-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .delay-input {
+      width: 72px;
+      padding: 5px 10px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      background: var(--bg);
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      outline: none;
+      text-align: center;
+      transition: border-color 0.15s;
+    }
+
+    .delay-input:focus { border-color: var(--coral); }
+
+    .btn-save {
+      padding: 5px 16px;
+      font-family: var(--font-hand);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--ink);
+      background: var(--surface);
+      border: 2px solid var(--ink);
+      border-radius: var(--radius-pill);
+      box-shadow: 2px 2px 0 var(--shadow);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 4px 4px 0 var(--shadow); }
+    .btn-save:active { transform: translateY(1px); box-shadow: 0 0 0 var(--shadow); }
+
+    .btn-remove {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 14px;
+      font-family: var(--font-hand);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--coral);
+      background: none;
+      border: 2px solid var(--coral);
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .btn-remove:hover { background: var(--coral); color: var(--surface); }
+
+    /* ── DOWNLOAD TOGGLE ───────────────────────────────── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-top: 4px;
+      border-top: 1.5px dashed var(--shadow);
+    }
+
+    .toggle-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      flex: 1;
+    }
+
+    .toggle-label strong { color: var(--ink); }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--shadow);
+      border: 2px solid var(--ink);
+      border-radius: 24px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle input:checked + .toggle-track { background: var(--coral); }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: var(--surface);
+      border-radius: 50%;
+      border: 1.5px solid var(--ink);
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .toggle-track::after { transform: translateX(20px); }
+
+    /* ── EMPTY / LOADING ───────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state svg { width: 52px; height: 52px; margin-bottom: 14px; opacity: 0.5; }
+
+    .empty-state p {
+      font-family: var(--font-hand);
+      font-size: 22px;
+      font-weight: 500;
+    }
+
+    .spinner-sm {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2.5px solid #e8dfc8;
+      border-top-color: var(--coral);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── TOAST ─────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      padding: 10px 20px;
+      background: var(--ink);
+      color: var(--surface);
+      font-family: var(--font-hand);
+      font-size: 18px;
+      border-radius: var(--radius-pill);
+      box-shadow: 4px 4px 0 var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── CONFIRM DIALOG ────────────────────────────────── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(45, 43, 38, 0.45);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      pointer-events: none;
+    }
+
+    .overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .confirm-card {
+      background: var(--surface);
+      border: 3px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 7px 7px 0 var(--shadow);
+      padding: 28px 28px 22px;
+      max-width: 380px;
+      width: 100%;
+      transform: translateY(14px) scale(0.97);
+      transition: transform 0.18s ease;
+    }
+
+    .overlay.open .confirm-card {
+      transform: translateY(0) scale(1);
+    }
+
+    .confirm-msg {
+      font-family: var(--font-hand);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.4;
+      margin-bottom: 22px;
+    }
+
+    .confirm-btns {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn-cancel {
+      padding: 7px 22px;
+      font-family: var(--font-hand);
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--muted);
+      background: none;
+      border: 2px solid var(--muted);
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+    }
+
+    .btn-cancel:hover { color: var(--ink); border-color: var(--ink); }
+
+    .btn-confirm-ok {
+      padding: 7px 22px;
+      font-family: var(--font-hand);
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--surface);
+      background: var(--coral);
+      border: 2px solid var(--ink);
+      border-radius: var(--radius-pill);
+      box-shadow: 3px 3px 0 var(--ink);
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .btn-confirm-ok:hover { transform: translateY(-1px); box-shadow: 5px 5px 0 var(--ink); }
+    .btn-confirm-ok:active { transform: translateY(1px); box-shadow: 1px 1px 0 var(--ink); }
+
+    @media (max-width: 520px) {
+      #channels-grid { grid-template-columns: 1fr; }
+      .search-wrap { flex-direction: column; }
+      .channel-actions { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">
+    <img src="/static/logo.svg" alt="nyt">
+  </a>
+  <div class="nav-center">
+    <a href="/" class="nav-link">Videos</a>
+    <a href="/channels" class="nav-link active">Channels</a>
+    <a href="/settings" class="nav-link">Settings</a>
+  </div>
+  <div class="nav-right">
+    <button id="btn-logout" style="display:none" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- Search -->
+  <div class="section-title">Search Channel</div>
+  <div class="search-wrap">
+    <input id="search-input" class="search-input" type="text" placeholder="Channel handle (without @)" autocomplete="off">
+    <button class="btn-search" id="btn-search" onclick="searchChannel()">
+      <i data-lucide="search" style="width:16px;height:16px;"></i>
+      Search
+    </button>
+  </div>
+  <div id="search-result"></div>
+
+  <!-- Tracked -->
+  <div class="section-title">Tracked Channels</div>
+  <div id="channels-grid">
+    <div class="empty-state"><span class="spinner-sm"></span></div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<div class="overlay" id="confirm-overlay" role="dialog" aria-modal="true">
+  <div class="confirm-card">
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-confirm-ok" id="confirm-ok">Remove</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── CONFIRM DIALOG ───────────────────────────────────────
+
+  let _confirmResolve = null;
+
+  function showConfirm(message) {
+    return new Promise(resolve => {
+      _confirmResolve = resolve;
+      document.getElementById('confirm-msg').textContent = message;
+      document.getElementById('confirm-overlay').classList.add('open');
+      document.getElementById('confirm-ok').focus();
+    });
+  }
+
+  function closeConfirm(result = false) {
+    document.getElementById('confirm-overlay').classList.remove('open');
+    if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+  }
+
+  document.getElementById('confirm-ok').addEventListener('click', () => closeConfirm(true));
+
+  document.getElementById('confirm-overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeConfirm(false);
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeConfirm(false);
+  });
+
+  async function apiFetch(url, opts = {}) {
+    const res = await fetch(url, opts);
+    if (res.status === 401) { window.location.replace('/login'); throw new Error('unauthenticated'); }
+    return res;
+  }
+
+  async function logout() {
+    await fetch('/api/v1/auth/logout', { method: 'POST' });
+    window.location.replace('/login');
+  }
+
+  async function checkAuth() {
+    try {
+      const res = await fetch('/api/v1/auth/status');
+      if (!res.ok) return;
+      const { auth_enabled, logged_in } = await res.json();
+      if (auth_enabled && logged_in) document.getElementById('btn-logout').style.display = '';
+    } catch { /* non-critical */ }
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = String(str ?? '');
+    return d.innerHTML;
+  }
+
+  function fmtSubs(n) {
+    const v = parseInt(n, 10);
+    if (isNaN(v)) return n;
+    if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M subscribers';
+    if (v >= 1_000) return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'K subscribers';
+    return v + ' subscribers';
+  }
+
+  // ── SEARCH ───────────────────────────────────────────────
+
+  document.getElementById('search-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchChannel();
+  });
+
+  async function searchChannel() {
+    const handle = document.getElementById('search-input').value.trim().replace(/^@/, '');
+    if (!handle) return;
+
+    const btn = document.getElementById('btn-search');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-sm"></span> Searching';
+
+    const resultEl = document.getElementById('search-result');
+    resultEl.innerHTML = '';
+
+    try {
+      const res = await apiFetch(`/api/v1/channels/search?handle=${encodeURIComponent(handle)}`);
+      if (res.status === 404) {
+        resultEl.innerHTML = `<div class="search-error">No channel found for <strong>@${esc(handle)}</strong></div>`;
+        return;
+      }
+      if (!res.ok) throw new Error();
+      const { result } = await res.json();
+      renderSearchResult(result);
+    } catch (e) {
+      if (e.message !== 'unauthenticated')
+        resultEl.innerHTML = `<div class="search-error">Search failed. Is the server running?</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="search" style="width:16px;height:16px;"></i> Search';
+      lucide.createIcons();
+    }
+  }
+
+  function renderSearchResult(r) {
+    const resultEl = document.getElementById('search-result');
+    const avatarSrc = r.already_tracked
+      ? `/api/v1/channels/${encodeURIComponent(r.channel_handle)}/avatar`
+      : (r.avatar_url_medium || r.avatar_url_default || '');
+    const tracked = r.already_tracked;
+
+    resultEl.innerHTML = `
+      <div class="result-card">
+        ${avatarSrc ? `<img class="result-avatar" src="${esc(avatarSrc)}" alt="">` : ''}
+        <div class="result-info">
+          <div class="result-name">${esc(r.channel_name)}</div>
+          <div class="result-handle">@${esc(r.channel_handle)}</div>
+          <div class="result-subs">${fmtSubs(r.subscriber_count)}</div>
+          ${r.description ? `<div class="result-desc">${esc(r.description)}</div>` : ''}
+          <div class="result-actions">
+            ${tracked
+              ? `<span class="badge-tracked"><i data-lucide="check" style="width:15px;height:15px;"></i> Already tracking</span>`
+              : `<button class="btn-track" id="btn-track-result" onclick="trackChannel('${esc(r.channel_handle)}')">
+                   <i data-lucide="plus" style="width:15px;height:15px;"></i> Track
+                 </button>`
+            }
+          </div>
+        </div>
+      </div>`;
+    lucide.createIcons();
+  }
+
+  async function trackChannel(handle) {
+    const btn = document.getElementById('btn-track-result');
+    if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+
+    try {
+      const res = await apiFetch(`/api/v1/channels/add?channel_handle=${encodeURIComponent(handle)}`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      showToast(`Tracking @${handle}`);
+      document.getElementById('search-result').innerHTML = '';
+      document.getElementById('search-input').value = '';
+      await loadChannels();
+    } catch (e) {
+      if (e.message !== 'unauthenticated') showToast('Failed to add channel');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i data-lucide="plus" style="width:15px;height:15px;"></i> Track'; lucide.createIcons(); }
+    }
+  }
+
+  // ── TRACKED CHANNELS ─────────────────────────────────────
+
+  async function loadChannels() {
+    const grid = document.getElementById('channels-grid');
+    try {
+      const res = await apiFetch('/api/v1/channels/list');
+      if (!res.ok) throw new Error();
+      const { tracked_channels } = await res.json();
+
+      if (!tracked_channels.length) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1;">
+            <i data-lucide="tv-2" style="width:52px;height:52px;opacity:0.4;"></i>
+            <p>No channels tracked yet.<br>Search above to add one.</p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      grid.innerHTML = tracked_channels.map(ch => buildChannelCard(ch)).join('');
+      lucide.createIcons();
+    } catch (e) {
+      if (e.message !== 'unauthenticated')
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>Failed to load channels.</p></div>`;
+    }
+  }
+
+  function buildChannelCard(ch) {
+    const avatar     = `/api/v1/channels/${encodeURIComponent(ch.channel_handle)}/avatar`;
+    const name       = ch.channel_name || ch.channel_handle;
+    const delay      = ch.watch_delay_minutes ?? '';
+    const autoDownload = ch.auto_download !== false;
+    const toggleId   = `dl-${ch.channel_handle}`;
+    return `
+      <div class="channel-card">
+        <div class="channel-header">
+          <img class="channel-avatar" src="${esc(avatar)}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="channel-meta">
+            <div class="channel-name">${esc(name)}</div>
+            <div class="channel-row">
+              <span class="channel-handle">@${esc(ch.channel_handle)}</span>
+              <span class="video-count"><i data-lucide="film" style="width:11px;height:11px;"></i>${ch.video_count ?? 0}</span>
+            </div>
+          </div>
+        </div>
+        <div class="channel-actions">
+          <span class="delay-label">Check every</span>
+          <input class="delay-input" type="number" min="1" max="10080"
+                 value="${esc(String(delay))}" placeholder="–"
+                 id="delay-${esc(ch.channel_handle)}">
+          <span class="delay-label">min</span>
+          <button class="btn-save" onclick="saveDelay('${esc(ch.channel_handle)}')">Save</button>
+          <button class="btn-remove" onclick="removeChannel('${esc(ch.channel_handle)}')">
+            <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Remove
+          </button>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label"><strong>Auto-download</strong> new videos</span>
+          <label class="toggle" title="${autoDownload ? 'Downloads enabled' : 'Stream-only mode'}">
+            <input type="checkbox" id="${esc(toggleId)}" ${autoDownload ? 'checked' : ''}
+                   onchange="saveAutoDownload('${esc(ch.channel_handle)}', this.checked)">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>`;
+  }
+
+  async function saveAutoDownload(handle, enabled) {
+    try {
+      const res = await apiFetch(`/api/v1/channels/${encodeURIComponent(handle)}/auto-download`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auto_download: enabled }),
+      });
+      if (!res.ok) throw new Error();
+      showToast(enabled ? 'Auto-download enabled' : 'Stream-only mode enabled');
+    } catch (e) {
+      if (e.message !== 'unauthenticated') showToast('Failed to save');
+    }
+  }
+
+  async function saveDelay(handle) {
+    const input = document.getElementById(`delay-${handle}`);
+    const val   = input.value.trim();
+    const delay = val === '' ? null : parseInt(val, 10);
+
+    try {
+      const res = await apiFetch(`/api/v1/channels/${encodeURIComponent(handle)}/delay`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delay_minutes: delay }),
+      });
+      if (!res.ok) throw new Error();
+      showToast('Interval saved');
+    } catch (e) {
+      if (e.message !== 'unauthenticated') showToast('Failed to save');
+    }
+  }
+
+  async function removeChannel(handle) {
+    const ok = await showConfirm(`Remove @${handle} from tracking?\nVideos already downloaded are kept.`);
+    if (!ok) return;
+    try {
+      const res = await apiFetch(`/api/v1/channels/delete/${encodeURIComponent(handle)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      showToast(`Removed @${handle}`);
+      await loadChannels();
+    } catch (e) {
+      if (e.message !== 'unauthenticated') showToast('Failed to remove');
+    }
+  }
+
+  lucide.createIcons();
+  checkAuth();
+  loadChannels();
+</script>
+
+</body>
+</html>

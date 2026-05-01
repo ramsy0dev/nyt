@@ -1,38 +1,27 @@
-from nyt.constant import (
-    HOME,
-    PATH_DASH
-)
+from dataclasses import dataclass
+from pathlib import Path
 
+_ROOT = Path.home() / ".nyt"
+
+
+@dataclass
 class Config:
-    """
-    Config model
-    """
-    # The root path
-    ROOT_PREFIX: str = f"{HOME}{PATH_DASH}.nyt"
-    
-    # API
+    # API server
     API_HOST: str = "localhost"
     API_PORT: int = 9473
-    API_LOGS_FILE_PATH: str = f"{ROOT_PREFIX}{PATH_DASH}nyt.log"
 
-    # WEBAPP
-    WEBAPP_HOST: str = "localhost"
-    WEBAPP_PORT: int = 8080
-    
-    # The config file path
-    CONFIG_FILE_PATH: str = f"{ROOT_PREFIX}{PATH_DASH}nyt.toml"
-    
-    # Assets path
-    ASSETS_PREFIX: str = f"{ROOT_PREFIX}{PATH_DASH}assets"
+    # Paths (all under ~/.nyt/)
+    API_LOGS_FILE_PATH:      str = str(_ROOT / "nyt.log")
+    CONFIG_FILE_PATH:        str = str(_ROOT / "nyt.toml")
+    DATABASE_PATH:           str = str(_ROOT / "nyt.db")
+    VIDEOS_PREFIX_DIRECTORY: str = str(_ROOT / "videos")
+    AVATARS_DIRECTORY:       str = str(_ROOT / "avatars")
+    ASSETS_PREFIX:           str = str(_ROOT / "assets")
 
-    NYT_HIGH_RESOLUTION_LOGO: str = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo.png"
-    NYT_HIGH_RESOLUTION_LOGO_BLACK: str = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-black.png"
-    NYT_HIGH_RESOLUTION_LOGO_WHITE: str = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-white.png"
-    NYT_HIGH_RESOLUTION_LOGO_TRANSPARENT: str = f"{ASSETS_PREFIX}{PATH_DASH}nyt-high-resolution-logo-transparent.png"
+    # Auth (empty string = auth disabled)
+    ADMIN_USERNAME:      str = ""
+    ADMIN_PASSWORD_HASH: str = ""
+    ADMIN_SALT:          str = ""
 
-    # SQLite Database path
-    DATABASE_PATH: str = f"{ROOT_PREFIX}{PATH_DASH}nyt.db"
-
-    # Videos path
-    VIDEOS_PREFIX_DIRECTORY: str = f"{ROOT_PREFIX}{PATH_DASH}videos"
-
+    # Watcher
+    WATCH_DELAY_MINUTES: int = 60

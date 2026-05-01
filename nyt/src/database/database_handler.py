@@ -1,368 +1,372 @@
-import os
 import json
+import sqlite3
+from datetime import datetime
+from pathlib import Path
 
 from loguru import logger
 
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import (
-    select,
-    update,
-    delete
-)
-
-from nyt import constant
-
-# Database
-from nyt.src.database.database import Database
-from nyt.src.database.tables.declarative_base import Base
-
-# Tables
 from nyt.src.database.tables.channels_table import Channels
 from nyt.src.database.tables.videos_table import Videos
 from nyt.src.database.tables.watched_videos_table import WatchedVideos
+from nyt.src.utils import date_in_gmt
 
-# Utils
-from nyt.src.utils.date import date_in_gmt
-from nyt.src.utils.generate_uid import generate_uid
+
+_SCHEMA = """\
+PRAGMA journal_mode=WAL;
+
+CREATE TABLE IF NOT EXISTS channels (
+    channel_uid                TEXT PRIMARY KEY NOT NULL,
+    channel_handle             TEXT NOT NULL,
+    channel_name               TEXT,
+    video_starting_point_id    TEXT NOT NULL,
+    watched_videos_uid         TEXT NOT NULL,
+    channel_avatar_url_default TEXT NOT NULL DEFAULT '',
+    channel_avatar_url_medium  TEXT NOT NULL DEFAULT '',
+    channel_avatar_url_high    TEXT NOT NULL DEFAULT '',
+    watch_delay_minutes        INTEGER,
+    last_checked_at            TEXT,
+    auto_download              INTEGER DEFAULT 1,
+    added_at                   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS videos (
+    video_id       TEXT PRIMARY KEY NOT NULL,
+    channel_handle TEXT NOT NULL,
+    thumbnail_url  TEXT NOT NULL DEFAULT '',
+    title          TEXT NOT NULL DEFAULT '',
+    publish_date   TEXT NOT NULL,
+    download_path  TEXT NOT NULL DEFAULT '',
+    is_downloaded  INTEGER NOT NULL DEFAULT 0,
+    size           INTEGER NOT NULL DEFAULT 0,
+    is_watched     INTEGER NOT NULL DEFAULT 0,
+    timestamp      TEXT,
+    updated_at     TEXT,
+    added_at       TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS watched_videos (
+    watched_videos_uid TEXT PRIMARY KEY NOT NULL,
+    watched_videos     TEXT NOT NULL DEFAULT '{"ids":[]}',
+    updated_at         TEXT,
+    created_at         TEXT NOT NULL
+);
+"""
+
+# Columns added after initial schema — ALTER TABLE is idempotent via the migration check.
+_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
+    "channels": [
+        ("channel_name",        "TEXT"),
+        ("watch_delay_minutes", "INTEGER"),
+        ("last_checked_at",     "TEXT"),
+        ("auto_download",       "INTEGER DEFAULT 1"),
+    ],
+}
+
+
+def _dt(value) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def _parse_dt(s) -> datetime | None:
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(str(s))
+    except (ValueError, TypeError):
+        return None
+
 
 class DatabaseHandler:
-    """ Database handler """
     def __init__(self, database_path: str) -> None:
-        self.database = Database(database_path=database_path)
-        self.engine = self.database.engine()
-        self.session = sessionmaker(bind=self.engine)
+        self._path = str(database_path)
+        Path(self._path).parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
 
-        self.create_tables()
-    
-    def create_tables(self) -> None:
-        """
-        Creates the database's tables
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
 
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
-        Base.metadata.create_all(bind=self.engine)
-    
+    def _init_db(self) -> None:
+        with self._connect() as conn:
+            conn.executescript(_SCHEMA)
+            for table, cols in _MIGRATIONS.items():
+                existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+                for col_name, col_def in cols:
+                    if col_name not in existing:
+                        conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
+            conn.commit()
+
+    # ── Row converters ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _to_channel(row: sqlite3.Row) -> Channels:
+        ad = row["auto_download"]
+        return Channels(
+            channel_uid                = row["channel_uid"],
+            channel_handle             = row["channel_handle"],
+            channel_name               = row["channel_name"],
+            video_starting_point_id    = row["video_starting_point_id"],
+            watched_videos_uid         = row["watched_videos_uid"],
+            channel_avatar_url_default = row["channel_avatar_url_default"] or "",
+            channel_avatar_url_medium  = row["channel_avatar_url_medium"]  or "",
+            channel_avatar_url_high    = row["channel_avatar_url_high"]    or "",
+            watch_delay_minutes        = row["watch_delay_minutes"],
+            last_checked_at            = _parse_dt(row["last_checked_at"]),
+            auto_download              = bool(ad) if ad is not None else True,
+            added_at                   = _parse_dt(row["added_at"]),
+        )
+
+    @staticmethod
+    def _to_video(row: sqlite3.Row) -> Videos:
+        return Videos(
+            video_id       = row["video_id"],
+            channel_handle = row["channel_handle"],
+            thumbnail_url  = row["thumbnail_url"] or "",
+            title          = row["title"] or "",
+            publish_date   = _parse_dt(row["publish_date"]),
+            download_path  = row["download_path"] or "",
+            is_downloaded  = bool(row["is_downloaded"]),
+            size           = row["size"] or 0,
+            is_watched     = bool(row["is_watched"]),
+            timestamp      = _parse_dt(row["timestamp"]),
+            updated_at     = _parse_dt(row["updated_at"]),
+            added_at       = _parse_dt(row["added_at"]),
+        )
+
+    @staticmethod
+    def _to_watched(row: sqlite3.Row) -> WatchedVideos:
+        wv = row["watched_videos"]
+        if isinstance(wv, str):
+            wv = json.loads(wv)
+        return WatchedVideos(
+            watched_videos_uid = row["watched_videos_uid"],
+            watched_videos     = wv,
+            updated_at         = _parse_dt(row["updated_at"]),
+            created_at         = _parse_dt(row["created_at"]),
+        )
+
+    # ── Channels ──────────────────────────────────────────────────────────────
+
     def add_channel_to_channels(self, channel: Channels) -> None:
-        """
-        Adds a channel to the channels table
-
-        Args:
-            channel (Channels): A Channels table instance.
-        
-        Args:
-            None.
-        """
-        with self.session() as session:
-            session.add(channel)
-
-            self.create_watched_video_row(
-                watched_videos_uid=channel.watched_videos_uid
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO channels (
+                    channel_uid, channel_handle, channel_name,
+                    video_starting_point_id, watched_videos_uid,
+                    channel_avatar_url_default, channel_avatar_url_medium, channel_avatar_url_high,
+                    watch_delay_minutes, last_checked_at, auto_download, added_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    channel.channel_uid, channel.channel_handle, channel.channel_name,
+                    channel.video_starting_point_id, channel.watched_videos_uid,
+                    channel.channel_avatar_url_default or "",
+                    channel.channel_avatar_url_medium  or "",
+                    channel.channel_avatar_url_high    or "",
+                    channel.watch_delay_minutes,
+                    _dt(channel.last_checked_at),
+                    int(channel.auto_download) if channel.auto_download is not None else 1,
+                    _dt(channel.added_at),
+                ),
             )
-            
-            session.commit()
+            conn.execute(
+                "INSERT INTO watched_videos (watched_videos_uid, watched_videos, created_at) VALUES (?, ?, ?)",
+                (channel.watched_videos_uid, json.dumps({"ids": []}), _dt(date_in_gmt())),
+            )
+            conn.commit()
 
     def delete_channel_row(self, channel_handle: str) -> None:
-        """
-        Delete a channel row.
+        channel = self.get_channel_row(channel_handle=channel_handle)
+        for video in self.get_channel_videos(channel_handle=channel_handle):
+            if video.is_downloaded and video.download_path:
+                try:
+                    Path(video.download_path).unlink()
+                    logger.info(f"Removed video file '{video.download_path}'")
+                except FileNotFoundError:
+                    pass
 
-        Args:
-            channel_handle (str): The channel's handle.
-        
-        Returns:
-            None.
-        """
-        with self.session() as session:
-            channel = self.get_channel_row(channel_handle=channel_handle)
-            videos = self.get_channel_videos(channel_handle=channel_handle)
-            
-            # Delete the downloaded videos
-            for video in videos:
-                if video.is_downloaded:
-                    try:
-                        logger.info(f"Removing video '{video.download_path}'")
-                        os.remove(video.download_path)
-                    except FileNotFoundError:
-                        continue
-            stmts = [
-                delete(Channels).where(
-                    Channels.channel_handle == channel_handle
-                ),
-                delete(WatchedVideos).where(
-                    WatchedVideos.watched_videos_uid == channel.watched_videos_uid
-                ),
-                delete(Videos).where(
-                    Videos.channel_handle == channel_handle
+        with self._connect() as conn:
+            conn.execute("DELETE FROM videos WHERE channel_handle = ?", (channel_handle,))
+            if channel:
+                conn.execute(
+                    "DELETE FROM watched_videos WHERE watched_videos_uid = ?",
+                    (channel.watched_videos_uid,),
                 )
-            ]
-            
-            for stmt in stmts:
-                session.execute(stmt)
-            session.commit()
-    
-    def delete_watched_videos_row(self, watched_videos_uid: str) -> None:
-        """
-        Delete a watched_videos row.
+            conn.execute("DELETE FROM channels WHERE channel_handle = ?", (channel_handle,))
+            conn.commit()
 
-        Args:
-            watched_videos_uid (str): The watched_videos's UID.
-        
-        Returns:
-            None.
-        
-        """
-        with self.session() as session:
-            stmt = delete(WatchedVideos).where(
-                WatchedVideos.watched_videos_uid == watched_videos_uid
-            )
-            session.execute(stmt)
-            session.commit()
-        
     def get_channels(self) -> list[Channels]:
-        """
-        Returns a list of the rows in the channels table
-        """
-        channels: list[Channels] = None
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM channels").fetchall()
+        return [self._to_channel(r) for r in rows]
 
-        with self.session() as session:
-            stmt = select(Channels)
-            channels = [channel[0] for channel in session.execute(stmt).fetchall()]
-        
-        return channels
-    
-    def create_watched_video_row(self, watched_videos_uid: str | None = None) -> None:
-        """
-        Creates a new row in the watched_videos table.
-
-        Args:
-            watched_videos_uid (str): A pre-generated UID.
-        
-        Returns:
-            None.
-        """
-        watched_video = WatchedVideos()
-        watched_video.watched_videos_uid = generate_uid(data="") if watched_videos_uid is None else watched_videos_uid
-        watched_video.created_at = date_in_gmt()
-        
-        with self.session() as session:
-            session.add(watched_video)
-        
-            session.commit()
-    
-    def get_watched_videos_row(self, watched_videos_uid: str | None = None, channel_handle: str | None = None) -> WatchedVideos:
-        """
-        fetch a row from the watched_videos table.
-
-        Args:
-            watched_videos_uid (str): The UID of the row to fetch.
-
-        Returns:
-            WatchedVideos: An instance of the table WatchedVideos. 
-        """
-        watched_videos: WatchedVideos = None
-
-        with self.session() as session:
-            if watched_videos_uid is not None:
-                stmt = select(WatchedVideos).where(
-                    WatchedVideos.watched_videos_uid == watched_videos_uid
-                )
-
-                watched_videos = session.execute(stmt).fetchone()[0]
+    def get_channel_row(
+        self,
+        channel_handle: str | None = None,
+        channel_uid: str | None = None,
+    ) -> Channels | None:
+        with self._connect() as conn:
+            if channel_handle is not None:
+                row = conn.execute(
+                    "SELECT * FROM channels WHERE channel_handle = ?", (channel_handle,)
+                ).fetchone()
             else:
-                channel = self.get_channel_row(channel_handle=channel_handle)
-                watched_videos_uid = channel.watched_videos_uid
+                row = conn.execute(
+                    "SELECT * FROM channels WHERE channel_uid = ?", (channel_uid,)
+                ).fetchone()
+        return self._to_channel(row) if row else None
 
-                watched_videos = self.get_watched_videos_row(
-                    watched_videos_uid=watched_videos_uid
-                )
-
-        return watched_videos
-    
-    def get_channel_row(self, channel_handle: str | None = None, channel_uid: str | None = None) -> Channels:
-        """
-        Fetch a channel row.
-
-        Args:
-            channel_handle (str, optional, default: None): The channel's handle.
-            channel_uid (str, optional, default: None): The channel's UID.
-        
-        Returns:
-            Channels: A Channels instance table of the channel.
-        """
-        channel: Channels = None
-
-        with self.session() as session:
-            stmt = select(Channels).where(
-                Channels.channel_handle == channel_handle if channel_handle is not None else Channels.channel_uid == channel_uid
-            )
-            channel = session.execute(stmt).fetchone()[0]
-        
-        return channel
-    
     def get_channel_videos(self, channel_handle: str) -> list[Videos]:
-        """
-        Fetch videos of a channel based on it channel_handle.
-
-        Args:
-            channel_handle (str): The channel's handle.
-
-        Returns:
-            list[Videos]: A list of videos.
-        """
-        videos: list[Videos] = None
-
-        with self.session() as session:
-            stmt = select(Videos).where(
-                Videos.channel_handle == channel_handle
-            )
-            videos = [video[0] for video in session.execute(stmt).fetchall()]
-        
-        return videos
-
-    def get_watched_videos(self) -> list[WatchedVideos]:
-        """
-        fetch a list of rows from the watched_videos table.
-
-        Args:
-            None.
-        
-        Returns:
-            list[WatchedVideo]: A list of WatchedVideos instances.
-        """
-        watched_videos: list[WatchedVideos] = None
-
-        with self.session() as session:
-            stmt = select(WatchedVideos)
-            watched_videos = [watched_video [0] for watched_video in session.execute(stmt).fetchall()]
-
-        return watched_videos
-    
-    def add_video_id_to_watched_videos(self, watched_videos_uid: str, video_id: str, watched_videos: dict[str, list[str]]) -> None:
-        """
-        Adds a video id to the watched_videos column in the watched_videos table
-
-        Args:
-            watched_videos_uid (str): The watched_videos's UID.
-            video_id (str): The video's id.
-            watched_videos (dict[str, list[str]): The original list of the watched videos' id.
-        
-        Args:
-            None.
-        """
-        watched_videos["ids"].append(video_id)
-
-        with self.session() as session:
-            stmt = update(WatchedVideos).where(
-                WatchedVideos.watched_videos_uid == watched_videos_uid
-            ).values(
-                watched_videos = json.dumps(watched_videos),
-                updated_at = date_in_gmt()
-            )
-            
-            session.execute(stmt)
-            session.commit()
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM videos WHERE channel_handle = ?", (channel_handle,)
+            ).fetchall()
+        return [self._to_video(r) for r in rows]
 
     def update_video_starting_point_id(self, channel_handle: str, video_starting_point_id: str) -> None:
-        """
-        Update the video_starting_point_id column in the channels table.
-
-        Args:
-            channel_handle (str): The channel's handle.
-            video_starting_point_id (str): The new video starting point ID.
-        
-        Returns:
-            None.
-        """
-        with self.session() as session:
-            stmt = update(Channels).where(
-                Channels.channel_handle == channel_handle
-            ).values(
-                video_starting_point_id=video_starting_point_id
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE channels SET video_starting_point_id = ? WHERE channel_handle = ?",
+                (video_starting_point_id, channel_handle),
             )
+            conn.commit()
 
-            session.execute(stmt)
-            session.commit()
-    
+    def update_channel_delay(self, channel_handle: str, delay_minutes: int | None) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE channels SET watch_delay_minutes = ? WHERE channel_handle = ?",
+                (delay_minutes, channel_handle),
+            )
+            conn.commit()
+
+    def update_channel_auto_download(self, channel_handle: str, auto_download: bool) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE channels SET auto_download = ? WHERE channel_handle = ?",
+                (int(auto_download), channel_handle),
+            )
+            conn.commit()
+
+    def update_channel_last_checked(self, channel_handle: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE channels SET last_checked_at = ? WHERE channel_handle = ?",
+                (_dt(datetime.utcnow()), channel_handle),
+            )
+            conn.commit()
+
+    def check_channel_tracked(self, channel_handle: str) -> bool:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM channels WHERE channel_handle = ?", (channel_handle,)
+            ).fetchone()
+        return row is not None
+
+    def count_channel_videos(self, channel_handle: str) -> int:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM videos WHERE channel_handle = ?", (channel_handle,)
+            ).fetchone()
+        return row[0] if row else 0
+
+    # ── Videos ───────────────────────────────────────────────────────────────
+
     def add_video_to_videos(self, video: Videos) -> None:
-        """
-        Adds a video table row instance into the videos table.
-
-        Args:
-            video (Videos): A Videos table row instance.
-        
-        Returns:
-            None.
-        """
-        videos = self.get_videos_list()
-
-        for _video in videos:
-            if video.video_id == _video.video_id:
-                return
-        
-        with self.session() as session:
-            session.add(video)
-            session.commit()
-    
-    def get_videos_list(self) -> list[Videos]:
-        """
-        fetch a list of videos row from the videos table.
-
-        Args:
-            None.
-
-        Returns:
-            list[Videos]: A list of Videos table row instances.
-        """
-        videos: list[Videos] = None
-
-        with self.session() as session:
-            stmt = select(Videos)
-            videos = [video[0] for video in session.execute(stmt)]
-        
-        return videos
-    
-    def get_video_from_videos(self, video_id: str) -> Videos | None:
-        """
-        fetch a video row from the videos table.
-
-        Args:
-            video_id (str): The video's id.
-
-        Returns:
-            Videos: A Videos row table instance that represents the video.
-            In case is doesn't exists None is returned.
-        """
-        video: Videos = None
-
-        with self.session() as session:
-            stmt = select(Videos).where(
-                Videos.video_id == video_id
+        if self.get_video_from_videos(video_id=video.video_id) is not None:
+            return
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO videos (
+                    video_id, channel_handle, thumbnail_url, title,
+                    publish_date, download_path, is_downloaded, size,
+                    is_watched, timestamp, updated_at, added_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    video.video_id, video.channel_handle,
+                    video.thumbnail_url or "", video.title or "",
+                    _dt(video.publish_date), video.download_path or "",
+                    int(video.is_downloaded), video.size or 0,
+                    int(video.is_watched), _dt(video.timestamp),
+                    _dt(video.updated_at), _dt(video.added_at),
+                ),
             )
-            try:
-                video = session.execute(stmt).fetchone()[0]
-            except:
-                return None
+            conn.commit()
 
-        return video
+    def get_videos_list(self) -> list[Videos]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT * FROM videos").fetchall()
+        return [self._to_video(r) for r in rows]
+
+    def get_video_from_videos(self, video_id: str) -> Videos | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM videos WHERE video_id = ?", (video_id,)
+            ).fetchone()
+        return self._to_video(row) if row else None
 
     def update_videos_values(self, video_id: str, values: dict) -> None:
-        """
-        Update the values of a row in the videos table.
+        normalised = {}
+        for k, v in values.items():
+            if isinstance(v, bool):
+                normalised[k] = int(v)
+            elif isinstance(v, datetime):
+                normalised[k] = _dt(v)
+            else:
+                normalised[k] = v
 
-        Args:
-            video_id (str): The video's id.
-            values (dict): The dict of values that you want to update.
-        
-        Returns:
-            None.
-        """
-        with self.session() as session:
-            stmt = update(Videos).where(
-                Videos.video_id == video_id
-            ).values(values)
+        set_clause = ", ".join(f"{k} = ?" for k in normalised)
+        params     = list(normalised.values()) + [video_id]
+        with self._connect() as conn:
+            conn.execute(f"UPDATE videos SET {set_clause} WHERE video_id = ?", params)
+            conn.commit()
 
-            session.execute(stmt)
-            session.commit()
+    # ── Watched videos ────────────────────────────────────────────────────────
+
+    def get_watched_videos_row(
+        self,
+        watched_videos_uid: str | None = None,
+        channel_handle: str | None = None,
+    ) -> WatchedVideos | None:
+        if watched_videos_uid is None:
+            channel = self.get_channel_row(channel_handle=channel_handle)
+            if channel is None:
+                return None
+            watched_videos_uid = channel.watched_videos_uid
+
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM watched_videos WHERE watched_videos_uid = ?",
+                (watched_videos_uid,),
+            ).fetchone()
+        return self._to_watched(row) if row else None
+
+    def add_video_id_to_watched_videos(
+        self,
+        watched_videos_uid: str,
+        video_id: str,
+        watched_videos: dict,
+    ) -> None:
+        watched_videos["ids"].append(video_id)
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE watched_videos SET watched_videos = ?, updated_at = ? WHERE watched_videos_uid = ?",
+                (json.dumps(watched_videos), _dt(date_in_gmt()), watched_videos_uid),
+            )
+            conn.commit()
+
+    def delete_watched_videos_row(self, watched_videos_uid: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "DELETE FROM watched_videos WHERE watched_videos_uid = ?",
+                (watched_videos_uid,),
+            )
+            conn.commit()
