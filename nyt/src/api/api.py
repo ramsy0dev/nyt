@@ -55,6 +55,13 @@ def _auth_redirect(request: Request) -> RedirectResponse | None:
     return None
 
 
+# ── Favicon ───────────────────────────────────────────────────────────────────
+
+@api.get("/favicon.ico", include_in_schema=False)
+async def favicon_route():
+    return FileResponse(STATIC_DIR / "logo.svg", media_type="image/svg+xml")
+
+
 # ── Frontend HTML routes ──────────────────────────────────────────────────────
 
 @api.get("/", include_in_schema=False)
