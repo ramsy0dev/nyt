@@ -299,6 +299,79 @@
     .skel-line { height: 12px; border-radius: 6px; }
     .skel-line.w60 { width: 60%; }
 
+    /* ── DOWNLOAD PANEL ────────────────────────────────── */
+    #dl-panel {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 300px;
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 6px 6px 0 var(--shadow);
+      z-index: 200;
+      overflow: hidden;
+      animation: fadeIn 0.2s ease;
+    }
+
+    #dl-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--ink);
+      color: var(--surface);
+      font-family: var(--font-hand);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .dl-item {
+      padding: 11px 14px;
+      border-top: 1.5px solid var(--shadow);
+    }
+
+    .dl-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+
+    .dl-bar-wrap {
+      height: 5px;
+      background: var(--shadow);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+
+    .dl-bar {
+      height: 100%;
+      background: var(--coral);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    .dl-bar.done  { background: #6bcb77; }
+    .dl-bar.error { background: #e05252; }
+
+    .dl-bar.transcoding {
+      width: 35% !important;
+      transition: none;
+      animation: transcode-slide 1.4s ease-in-out infinite;
+    }
+    @keyframes transcode-slide {
+      0%   { margin-left: 0%;  width: 30% !important; }
+      50%  { margin-left: 55%; width: 35% !important; }
+      100% { margin-left: 0%;  width: 30% !important; }
+    }
+
+    .dl-meta { font-size: 11px; color: var(--muted); font-weight: 600; }
+
     /* ── STATES ────────────────────────────────────────── */
     .state {
       display: flex;
@@ -345,6 +418,14 @@
     <button id="btn-logout" style="display:none" onclick="doLogout()">Sign out</button>
   </div>
 </nav>
+
+<div id="dl-panel" style="display:none">
+  <div id="dl-header">
+    <i data-lucide="download" style="width:16px;height:16px;flex-shrink:0"></i>
+    <span id="dl-title">Downloading</span>
+  </div>
+  <div id="dl-list"></div>
+</div>
 
 <main>
   <div class="toolbar" id="toolbar" style="display:none">
@@ -466,6 +547,7 @@
   }
 
   async function checkAuth() {
+    try { await fetch('/api/v1/auth/refresh', { method: 'POST' }); } catch {}
     const res = await fetch('/api/v1/auth/status');
     if (!res) return;
     const { auth_enabled, logged_in } = await res.json();
@@ -486,9 +568,9 @@
     }
   }
 
-  async function init() {
-    root.innerHTML = skels(12);
-    await checkAuth();
+  /* ── Video list loader (called on init + after download finishes) ── */
+  async function loadVideos(silent = false) {
+    if (!silent) root.innerHTML = skels(12);
 
     const res = await apiFetch('/api/v1/videos/list/');
     if (!res) return;
@@ -507,23 +589,103 @@
     const { videos_info: videos } = await res.json();
 
     if (!videos || videos.length === 0) {
-      root.innerHTML = `
-        <div class="state">
-          <i data-lucide="inbox" class="state-icon"></i>
-          <h2>Nothing here yet!</h2>
-          <p>Start tracking a channel and videos will appear here.<br>
-             Or visit <a href="/channels" style="color:var(--coral)">Channels</a> to add one.
-          </p>
-        </div>`;
-      lucide.createIcons();
+      if (!silent) {
+        root.innerHTML = `
+          <div class="state">
+            <i data-lucide="inbox" class="state-icon"></i>
+            <h2>Nothing here yet!</h2>
+            <p>Start tracking a channel and videos will appear here.<br>
+               Or visit <a href="/channels" style="color:var(--coral)">Channels</a> to add one.
+            </p>
+          </div>`;
+        lucide.createIcons();
+      }
       return;
     }
 
     allVideos = videos;
     document.getElementById('toolbar').style.display = 'flex';
     renderVideos();
+  }
+
+  /* ── Download progress SSE ──────────────────────────────── */
+  let _dlEs         = null;
+  let _refreshTimer = null;
+
+  function fmtSpeed(bps) {
+    if (!bps) return '';
+    return bps >= 1048576
+      ? `${(bps / 1048576).toFixed(1)} MB/s`
+      : `${Math.round(bps / 1024)} KB/s`;
+  }
+
+  function fmtEta(secs) {
+    if (secs == null) return '';
+    return secs >= 60
+      ? `${Math.floor(secs / 60)}m ${secs % 60}s`
+      : `${secs}s`;
+  }
+
+  function updateDownloadPanel(progress) {
+    const panel  = document.getElementById('dl-panel');
+    const list   = document.getElementById('dl-list');
+    const header = document.getElementById('dl-title');
+    const entries = Object.entries(progress);
+
+    if (entries.length === 0) { panel.style.display = 'none'; return; }
+
+    panel.style.display = '';
+    const nActive = entries.filter(([, d]) => d.status === 'downloading' || d.status === 'transcoding').length;
+    header.textContent  = nActive > 0 ? `Active (${nActive})` : 'Downloads';
+
+    list.innerHTML = entries.map(([vid, d]) => {
+      const pct  = d.percent ?? 0;
+      const meta = d.status === 'finished'    ? 'Done ✓'
+                 : d.status === 'error'       ? 'Failed'
+                 : d.status === 'transcoding' ? 'Transcoding…'
+                 : [fmtSpeed(d.speed), fmtEta(d.eta)].filter(Boolean).join(' · ');
+      const cls  = d.status === 'finished'    ? 'dl-bar done'
+                 : d.status === 'error'       ? 'dl-bar error'
+                 : d.status === 'transcoding' ? 'dl-bar transcoding'
+                 : 'dl-bar';
+      return `
+        <div class="dl-item">
+          <div class="dl-title">${esc(d.title || vid)}</div>
+          <div class="dl-bar-wrap"><div class="${cls}" style="${d.status === 'transcoding' ? '' : `width:${pct}%`}"></div></div>
+          <div class="dl-meta">${d.status === 'transcoding' ? meta : `${Math.round(pct)}%${meta ? ' · ' + meta : ''}`}</div>
+        </div>`;
+    }).join('');
+
+    lucide.createIcons();
+
+    // Silently refresh video list 2s after the first "finished" entry appears
+    const anyDone = entries.some(([, d]) => d.status === 'finished');
+    if (anyDone && !_refreshTimer) {
+      _refreshTimer = setTimeout(async () => {
+        await loadVideos(true);
+        _refreshTimer = null;
+      }, 2000);
+    }
+  }
+
+  function connectSSE() {
+    if (_dlEs) _dlEs.close();
+    _dlEs = new EventSource('/api/v1/downloads/progress');
+    _dlEs.onmessage = (e) => {
+      try { updateDownloadPanel(JSON.parse(e.data)); } catch {}
+    };
+    // EventSource auto-reconnects on error; nothing to do here
+  }
+
+  window.addEventListener('beforeunload', () => { if (_dlEs) _dlEs.close(); });
+
+  /* ── Init ──────────────────────────────────────────────── */
+  async function init() {
+    await checkAuth();
+    await loadVideos();
     pollWatcher();
     setInterval(pollWatcher, 30000);
+    connectSSE();
   }
 
   init();

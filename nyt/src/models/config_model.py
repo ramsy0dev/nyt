@@ -25,3 +25,13 @@ class Config:
 
     # Watcher
     WATCH_DELAY_MINUTES: int = 60
+
+    # Player
+    QUALITY_SELECTION_ENABLED: bool = False
+    TRANSCODING_ENABLED:       bool = False
+
+    # Storage
+    STORAGE_LIMIT_GB: float = 0.0  # 0 = unlimited
+
+    # Cleanup
+    AUTO_DELETE_WATCHED_DAYS: int = 0  # 0 = disabled

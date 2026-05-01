@@ -12,11 +12,11 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
 yt-dlp = "^2024.5.27"
-pytubefix = "^8.0.0"
 fastapi = "^0.111.0"
 uvicorn = "^0.30.0"
 loguru = "^0.7.0"
 requests = "^2.31.0"
+orjson = "^3.9"
 
 [tool.poetry.plugins."console_scripts"]
 nyt = "nyt:cli.run"

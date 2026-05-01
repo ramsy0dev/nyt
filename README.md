@@ -16,36 +16,87 @@
 
 ---
 
-**nyt** is a self-hosted YouTube channel tracker. It monitors the channels you care about, downloads new videos the moment they appear, and serves them through a clean web interface — no algorithm, no recommendations, no distractions. Just your subscriptions.
+**nyt** is a self-hosted YouTube channel tracker. It monitors the channels you care about, downloads new uploads the moment they appear, and serves them through a clean web interface — no algorithm, no recommendations, no distractions. Just your subscriptions.
 
 ## Features
 
-- **Track channels** from the web UI or the CLI
-- **Auto-download** new uploads as they appear, or enable stream-only mode to save bandwidth and stream on demand
-- **Built-in player** — no third-party embeds, videos served directly from your machine
-- **Channel management UI** — search YouTube, add/remove channels, set per-channel check intervals
-- **Admin authentication** — optional password protection for your instance
-- **Desktop notifications** on new uploads (Linux, macOS, Windows)
-- **No FFmpeg required** — downloads the best pre-merged format available
-- Single binary-style install via pip — no Node.js, no Docker, no build step
+**Watching**
+- Responsive video grid with sort (by date or channel) and filter (all / unwatched)
+- Native HTML5 player — streams video files directly from your machine via HTTP range requests
+- **Creator subtitles** — VTT subtitle tracks downloaded alongside each video and loaded natively in the player with a language selector
+- **Chapter bar** — interactive timeline below the player; click any segment to jump to that chapter, with the active chapter highlighted in real time
+- Resume playback — the player remembers your position and offers to pick up where you left off
+- Mark watched automatically on play, or manually from the grid
+
+**Downloading**
+- Auto-download new uploads from tracked channels, or enable **stream-only mode** per channel to list videos without storing them locally
+- **Quality variants** via FFmpeg — transcode downloads to 720p, 480p, and 360p in the background; switch quality mid-playback from the player
+- **Storage cap** — set a maximum GB limit; nyt tracks disk usage and displays a live usage meter in settings
+- **Auto-delete** watched videos after a configurable number of days to reclaim space
+- Download progress and transcoding progress streamed to the web UI in real time via SSE
+- Desktop notifications on new uploads (Linux, macOS, Windows)
+
+**Channel management**
+- Search YouTube by handle and preview channel info (avatar, subscriber count, description) before tracking
+- Per-channel **custom poll interval** — override the global watcher delay on a channel-by-channel basis
+- Per-channel stream-only toggle
+
+**Server**
+- Single command (`nyt serve`) starts the web UI, REST API, and background watcher together
+- Background watcher runs as a daemon thread — each channel is checked on its own schedule, skipped if not yet due
+- **JWT authentication** — optional password protection using HS256 tokens; sessions last 30 days with automatic refresh on every page load, invalidated on logout or credential change
+- Rotating log file (10 MB, 3 backups)
 
 ## Requirements
 
 - Python 3.11 or newer
+- FFmpeg (optional — only needed for quality variant transcoding)
 
-## Install
+## Docker
+
+The fastest way to run nyt. Everything — config, database, videos, avatars — is stored in a named Docker volume and survives container restarts and rebuilds.
+
+```bash
+docker compose up -d
+```
+
+Then open [http://localhost:9473](http://localhost:9473).
+
+**Change the watcher interval** (default: 60 minutes):
+
+```yaml
+# docker-compose.yml
+command: ["nyt", "serve", "--host", "0.0.0.0", "--delay", "120"]
+```
+
+**Expose videos on a different port:**
+
+```yaml
+ports:
+  - "8080:9473"
+```
+
+**Use a bind mount** instead of a named volume (easier to inspect files directly):
+
+```yaml
+volumes:
+  - ./data:/root/.nyt
+```
+
+**Set admin credentials** (do this before exposing the instance on a network):
+
+```bash
+docker compose exec nyt nyt superuser --username admin --password yourpassword
+docker compose restart nyt
+```
+
+## Install (without Docker)
 
 ```bash
 pip install git+https://github.com/ramsy0dev/nyt.git
 ```
 
-Add your API key to `~/.nyt/nyt.toml` after the first run (the file is created automatically):
-
-```toml
-# nyt.toml is generated on first launch — add your key here
-```
-
-> The API key goes in `nyt/constant.py` for now. A proper config field is on the roadmap.
+The config file, database, and directory structure under `~/.nyt/` are created automatically on first run.
 
 ## Usage
 
@@ -63,20 +114,24 @@ nyt remove --channel-handle LinusTechTips
 
 ### Start the server
 
-`nyt serve` starts the web UI, the REST API, and the background watcher in one command:
-
 ```bash
 nyt serve
 ```
 
-Then open [http://localhost:9473](http://localhost:9473).
+Opens the web UI + REST API + background watcher at [http://localhost:9473](http://localhost:9473).
 
 ```bash
-# Custom host / port / watcher interval
+# Custom host / port / global watcher interval
 nyt serve --host 0.0.0.0 --port 8080 --delay 120
 ```
 
-The watcher runs in a background thread and checks each channel on its own schedule. The default interval is **60 minutes** and can be overridden per channel from the web UI.
+### Run the watcher standalone
+
+Download-only mode, no web interface:
+
+```bash
+nyt watch --delay 60
+```
 
 ### Secure your instance
 
@@ -86,26 +141,22 @@ Set admin credentials before exposing nyt on a network:
 nyt superuser --username admin --password yourpassword
 ```
 
-Restart the server after running this. All pages will redirect to a login screen until authenticated. The session is cookie-based and lasts 30 days.
-
-### Run the watcher standalone
-
-If you only want the download loop without the web interface:
+Restart the server. All pages will redirect to a login screen until authenticated. To remove authentication:
 
 ```bash
-nyt watch --delay 60
+nyt superuser --disable
+# prompts for current credentials before clearing them
 ```
 
 ## Web UI
 
-| Page | Description |
-|------|-------------|
-| **/** | Video grid — sort by date or channel, filter unwatched, mark watched |
-| **/watch/:id** | Video player — streams directly from your local library |
-| **/channels** | Channel management — search YouTube, add/remove channels, set download mode and poll interval |
-| **/login** | Auth page — only shown when a superuser is configured |
-
-**Stream-only mode** — per channel, you can disable auto-download. New videos are listed in the grid but not stored locally. Clicking play streams the video from YouTube on demand through the nyt server. Toggle it from the Channels page.
+| Page | Path | Description |
+|------|------|-------------|
+| Home | `/` | Video grid — sort, filter, mark watched |
+| Player | `/watch/:id` | Native player with subtitle tracks and chapter bar |
+| Channels | `/channels` | Search YouTube, add/remove channels, configure poll intervals and download mode |
+| Settings | `/settings` | Watcher interval, storage limit + usage meter, transcoding toggle, auth management |
+| Login | `/login` | Only shown when a superuser is configured |
 
 ## Storage
 
@@ -116,13 +167,13 @@ Everything lives under `~/.nyt/` (Linux / macOS) or `%UserProfile%\.nyt\` (Windo
 | `nyt.toml` | Configuration |
 | `nyt.db` | SQLite database |
 | `nyt.log` | Log file (rotating, 10 MB max) |
-| `videos/` | Downloaded video files |
+| `videos/` | Downloaded video files and subtitle VTTs |
 | `avatars/` | Cached channel avatar images |
 | `assets/` | nyt logo assets |
 
 ## Configuration
 
-`~/.nyt/nyt.toml` is created automatically on first run. Relevant fields:
+`~/.nyt/nyt.toml` is generated automatically. Key fields:
 
 ```toml
 [nyt]
@@ -133,15 +184,22 @@ host = "localhost"
 port = "9473"
 
 [nyt.watcher]
-watch_delay_minutes = 60
+watch_delay_minutes = 60   # global default; overridable per channel from the UI
+
+[nyt.player]
+transcoding_enabled = false  # set true to generate 720p/480p/360p variants via FFmpeg
+
+[nyt.storage]
+storage_limit_gb = 0.0       # 0 = unlimited
+auto_delete_watched_days = 0 # 0 = disabled; deletes watched video files after N days
 
 [nyt.auth]
-admin_username      = ""
+admin_username      = ""   # empty = auth disabled; managed via `nyt superuser`
 admin_password_hash = ""
 admin_salt          = ""
 ```
 
-Auth fields are managed by `nyt superuser` — edit them manually at your own risk.
+Auth fields are managed by `nyt superuser` — do not edit them manually.
 
 ## License
 

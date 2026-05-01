@@ -41,7 +41,10 @@ CREATE TABLE IF NOT EXISTS videos (
     is_watched     INTEGER NOT NULL DEFAULT 0,
     timestamp      TEXT,
     updated_at     TEXT,
-    added_at       TEXT NOT NULL
+    added_at       TEXT NOT NULL,
+    variants       TEXT NOT NULL DEFAULT '[]',
+    subtitles      TEXT NOT NULL DEFAULT '[]',
+    chapters       TEXT NOT NULL DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS watched_videos (
@@ -59,6 +62,11 @@ _MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         ("watch_delay_minutes", "INTEGER"),
         ("last_checked_at",     "TEXT"),
         ("auto_download",       "INTEGER DEFAULT 1"),
+    ],
+    "videos": [
+        ("variants",  "TEXT NOT NULL DEFAULT '[]'"),
+        ("subtitles", "TEXT NOT NULL DEFAULT '[]'"),
+        ("chapters",  "TEXT NOT NULL DEFAULT '[]'"),
     ],
 }
 
@@ -123,7 +131,15 @@ class DatabaseHandler:
         )
 
     @staticmethod
-    def _to_video(row: sqlite3.Row) -> Videos:
+    def _json_col(row: sqlite3.Row, col: str) -> list:
+        keys = row.keys()
+        raw  = row[col] if col in keys else "[]"
+        try:
+            return json.loads(raw or "[]")
+        except (ValueError, TypeError):
+            return []
+
+    def _to_video(self, row: sqlite3.Row) -> Videos:
         return Videos(
             video_id       = row["video_id"],
             channel_handle = row["channel_handle"],
@@ -137,6 +153,9 @@ class DatabaseHandler:
             timestamp      = _parse_dt(row["timestamp"]),
             updated_at     = _parse_dt(row["updated_at"]),
             added_at       = _parse_dt(row["added_at"]),
+            variants       = self._json_col(row, "variants"),
+            subtitles      = self._json_col(row, "subtitles"),
+            chapters       = self._json_col(row, "chapters"),
         )
 
     @staticmethod
@@ -287,8 +306,9 @@ class DatabaseHandler:
                 INSERT INTO videos (
                     video_id, channel_handle, thumbnail_url, title,
                     publish_date, download_path, is_downloaded, size,
-                    is_watched, timestamp, updated_at, added_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    is_watched, timestamp, updated_at, added_at,
+                    variants, subtitles, chapters
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     video.video_id, video.channel_handle,
@@ -297,9 +317,31 @@ class DatabaseHandler:
                     int(video.is_downloaded), video.size or 0,
                     int(video.is_watched), _dt(video.timestamp),
                     _dt(video.updated_at), _dt(video.added_at),
+                    json.dumps(video.variants  if video.variants  is not None else []),
+                    json.dumps(video.subtitles if video.subtitles is not None else []),
+                    json.dumps(video.chapters  if video.chapters  is not None else []),
                 ),
             )
             conn.commit()
+
+    def get_storage_used_bytes(self) -> int:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(size), 0) FROM videos WHERE is_downloaded = 1"
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    def get_stale_downloaded_videos(self, older_than_days: int) -> list[Videos]:
+        from datetime import timedelta
+        cutoff = (datetime.utcnow() - timedelta(days=older_than_days)).isoformat()
+        with self._connect() as conn:
+            rows = conn.execute(
+                """SELECT * FROM videos
+                   WHERE is_watched = 1 AND is_downloaded = 1
+                   AND timestamp IS NOT NULL AND timestamp <= ?""",
+                (cutoff,),
+            ).fetchall()
+        return [self._to_video(r) for r in rows]
 
     def get_videos_list(self) -> list[Videos]:
         with self._connect() as conn:
@@ -320,6 +362,8 @@ class DatabaseHandler:
                 normalised[k] = int(v)
             elif isinstance(v, datetime):
                 normalised[k] = _dt(v)
+            elif isinstance(v, (list, dict)):
+                normalised[k] = json.dumps(v)
             else:
                 normalised[k] = v
 
