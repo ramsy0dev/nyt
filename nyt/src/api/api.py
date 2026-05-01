@@ -40,26 +40,25 @@ api.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Favicon ───────────────────────────────────────────────────────────────────
+
+@api.get("/favicon.ico", include_in_schema=False)
+async def favicon_route():
+    return FileResponse(STATIC_DIR / "logo.svg", media_type="image/svg+xml")
+
+
 api.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _auth_redirect(request: Request) -> RedirectResponse | None:
-    """Return a redirect if auth is enabled and the session cookie is invalid."""
     if not auth_manager.is_auth_enabled():
         return None
     token = request.cookies.get("nyt_session")
     if not token or not auth_manager.validate_session(token):
         return RedirectResponse(url="/login")
     return None
-
-
-# ── Favicon ───────────────────────────────────────────────────────────────────
-
-@api.get("/favicon.ico", include_in_schema=False)
-async def favicon_route():
-    return FileResponse(STATIC_DIR / "logo.svg", media_type="image/svg+xml")
 
 
 # ── Frontend HTML routes ──────────────────────────────────────────────────────
