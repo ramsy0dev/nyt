@@ -54,41 +54,84 @@
 
 ## Docker
 
-The fastest way to run nyt. Everything — config, database, videos, avatars — is stored in a named Docker volume and survives container restarts and rebuilds.
+**Requirements:** Docker and Docker Compose (included with Docker Desktop).
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/ramsy0dev/nyt.git
+cd nyt
+```
+
+### 2. Build and start
 
 ```bash
 docker compose up -d
 ```
 
-Then open [http://localhost:9473](http://localhost:9473).
+This builds the image, starts the container, and runs the watcher in the background. Everything — config, database, videos, avatars — is stored in a named Docker volume and persists across restarts and rebuilds.
 
-**Change the watcher interval** (default: 60 minutes):
+### 3. Open the web UI
 
-```yaml
-# docker-compose.yml
-command: ["nyt", "serve", "--host", "0.0.0.0", "--delay", "120"]
+```
+http://localhost:9473
 ```
 
-**Expose videos on a different port:**
+### 4. Track your first channel
 
-```yaml
-ports:
-  - "8080:9473"
+```bash
+docker compose exec nyt nyt track --channel-handle LinusTechTips
 ```
 
-**Use a bind mount** instead of a named volume (easier to inspect files directly):
+The watcher picks up new uploads automatically every 60 minutes. Downloaded videos appear in the grid immediately.
 
-```yaml
-volumes:
-  - ./data:/root/.nyt
-```
+### 5. Secure your instance (optional)
 
-**Set admin credentials** (do this before exposing the instance on a network):
+Set credentials before exposing nyt on a network:
 
 ```bash
 docker compose exec nyt nyt superuser --username admin --password yourpassword
 docker compose restart nyt
 ```
+
+All pages will require login. To remove the password later:
+
+```bash
+docker compose exec nyt nyt superuser --disable
+docker compose restart nyt
+```
+
+---
+
+### Configuration
+
+**Change the watcher interval** — edit `docker-compose.yml` and add a `command` override:
+
+```yaml
+services:
+  nyt:
+    command: ["nyt", "serve", "--host", "0.0.0.0", "--delay", "120"]
+```
+
+**Expose on a different port:**
+
+```yaml
+services:
+  nyt:
+    ports:
+      - "8080:9473"
+```
+
+**Use a bind mount** instead of a named volume (easier to browse downloaded files directly):
+
+```yaml
+services:
+  nyt:
+    volumes:
+      - ./data:/root/.nyt
+```
+
+After changing `docker-compose.yml`, run `docker compose up -d` to apply.
 
 ## Install (without Docker)
 
