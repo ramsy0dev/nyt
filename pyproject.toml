@@ -10,18 +10,13 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.11,<3.12"
-typer = "^0.12.3"
-rich = "^13.7.1"
-sqlalchemy = "^2.0.30"
-notify-py = "^0.3.42"
+python = ">=3.11,<4.0"
 yt-dlp = "^2024.5.27"
-ytagegatebypass = {git = "https://github.com/pukkandan/yt-dlp-YTAgeGateBypass"}
-pytube = {git = "https://github.com/ramsy0dev/pytube"}
+pytubefix = "^8.0.0"
 fastapi = "^0.111.0"
-uvicorn = ">=0.24.0,<0.25.0"
-django = "^5.0.6"
-toml = "^0.10.2"
+uvicorn = "^0.30.0"
+loguru = "^0.7.0"
+requests = "^2.31.0"
 
 [tool.poetry.plugins."console_scripts"]
 nyt = "nyt:cli.run"

@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nyt — Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #fef6e4;
+      --surface:   #fffdf8;
+      --ink:       #2d2b26;
+      --shadow:    #e0c898;
+      --coral:     #f4845f;
+      --coral-bg:  #fde8e0;
+      --muted:     #a09880;
+      --red:       #e05252;
+      --red-bg:    #fdeaea;
+      --green:     #6bcb77;
+      --green-bg:  #e8f9ea;
+      --font-hand: 'Caveat', cursive;
+      --font-body: 'Nunito', sans-serif;
+      --radius-card: 14px 8px 16px 10px / 10px 16px 8px 14px;
+      --radius-pill: 50px 40px 48px 44px / 42px 50px 40px 46px;
+    }
+
+    html, body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle, #d9c9a3 1.2px, transparent 1.2px);
+      background-size: 26px 26px;
+      color: var(--ink);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ─────────────────────────────────────────────── */
+    nav {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--ink);
+      border-bottom: 2.5px solid var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo img { height: 38px; width: auto; display: block; }
+
+    .nav-center { display: flex; align-items: center; gap: 24px; }
+
+    .nav-link {
+      font-family: var(--font-hand);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--surface);
+      text-decoration: none;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+
+    .nav-link:hover, .nav-link.active { opacity: 1; }
+
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+
+    #btn-logout {
+      background: none;
+      border: 1.5px solid var(--shadow);
+      color: var(--surface);
+      font-family: var(--font-hand);
+      font-size: 16px;
+      padding: 4px 14px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.15s;
+    }
+    #btn-logout:hover { opacity: 1; }
+
+    /* ── LAYOUT ──────────────────────────────────────────── */
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 40px 22px 100px;
+    }
+
+    .page-title {
+      font-family: var(--font-hand);
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 32px;
+    }
+
+    /* ── SECTION ─────────────────────────────────────────── */
+    .section {
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 6px 6px 0 var(--shadow);
+      padding: 26px 28px;
+      margin-bottom: 28px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+
+    .section-title {
+      font-family: var(--font-hand);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title svg { color: var(--coral); }
+
+    /* ── FORM ROWS ───────────────────────────────────────── */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .field:last-of-type { margin-bottom: 0; }
+
+    label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .field-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: -2px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 14px;
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      background: var(--bg);
+      border: 2.5px solid var(--ink);
+      border-radius: 10px 6px 12px 8px / 8px 12px 6px 10px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input:focus { border-color: var(--coral); box-shadow: 3px 3px 0 var(--shadow); }
+
+    .field-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .field-row .field { flex: 1; margin-bottom: 0; }
+
+    /* ── BUTTONS ─────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 22px;
+      font-family: var(--font-hand);
+      font-size: 19px;
+      font-weight: 700;
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-pill);
+      box-shadow: 4px 4px 0 var(--ink);
+      cursor: pointer;
+      transition: transform 0.12s, box-shadow 0.12s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { transform: translateY(-2px); box-shadow: 6px 6px 0 var(--ink); }
+    .btn:active { transform: translateY(1px); box-shadow: 2px 2px 0 var(--ink); }
+    .btn:disabled { opacity: 0.5; pointer-events: none; }
+
+    .btn-primary { color: var(--surface); background: var(--coral); }
+    .btn-danger  { color: var(--surface); background: var(--red); border-color: var(--red); box-shadow: 4px 4px 0 #c04040; }
+    .btn-danger:hover  { box-shadow: 6px 6px 0 #c04040; }
+    .btn-danger:active { box-shadow: 2px 2px 0 #c04040; }
+    .btn-ghost {
+      color: var(--ink);
+      background: none;
+      box-shadow: 3px 3px 0 var(--shadow);
+    }
+    .btn-ghost:hover { box-shadow: 5px 5px 0 var(--shadow); }
+    .btn-ghost:active { box-shadow: 1px 1px 0 var(--shadow); }
+
+    /* ── STATUS BADGES ───────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 12px;
+      font-family: var(--font-hand);
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: var(--radius-pill);
+      border: 2px solid;
+    }
+
+    .badge-on  { color: #2e7d32; background: var(--green-bg); border-color: var(--green); }
+    .badge-off { color: var(--muted); background: var(--bg); border-color: var(--shadow); }
+
+    /* ── DIVIDER ─────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 2px dashed var(--shadow);
+      margin: 22px 0;
+    }
+
+    /* ── INLINE SAVE ROW ─────────────────────────────────── */
+    .save-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 18px;
+    }
+
+    /* ── AUTH STATUS ROW ─────────────────────────────────── */
+    .auth-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .auth-status-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    /* ── DANGER ZONE ─────────────────────────────────────── */
+    .danger-zone {
+      background: var(--red-bg);
+      border: 2px solid var(--red);
+      border-radius: 10px 6px 12px 8px / 8px 12px 6px 10px;
+      padding: 18px 20px;
+      margin-top: 22px;
+    }
+
+    .danger-title {
+      font-family: var(--font-hand);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--red);
+      margin-bottom: 12px;
+    }
+
+    .danger-desc {
+      font-size: 13px;
+      color: var(--ink);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── TOAST ───────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--ink);
+      color: var(--surface);
+      font-family: var(--font-hand);
+      font-size: 18px;
+      padding: 10px 24px;
+      border-radius: var(--radius-pill);
+      box-shadow: 4px 4px 0 var(--shadow);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 500;
+      white-space: nowrap;
+    }
+
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.error { background: var(--red); }
+
+    /* ── CONFIRM OVERLAY ─────────────────────────────────── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(45,43,38,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s;
+    }
+
+    .overlay.open { opacity: 1; pointer-events: all; }
+
+    .dialog {
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 8px 8px 0 var(--shadow);
+      padding: 28px 32px;
+      max-width: 380px;
+      width: 90%;
+      transform: translateY(12px);
+      transition: transform 0.18s;
+    }
+
+    .overlay.open .dialog { transform: translateY(0); }
+
+    .dialog-title {
+      font-family: var(--font-hand);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+
+    .dialog-msg {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── CONFIRM PASSWORD INPUT ──────────────────────────── */
+    #confirm-password-wrap {
+      margin-bottom: 16px;
+    }
+
+    #confirm-password-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: block;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="/">
+    <img src="/static/logo.svg" alt="nyt">
+  </a>
+  <div class="nav-center">
+    <a class="nav-link" href="/">Videos</a>
+    <a class="nav-link" href="/channels">Channels</a>
+    <a class="nav-link active" href="/settings">Settings</a>
+  </div>
+  <div class="nav-right">
+    <button id="btn-logout" style="display:none" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-title">Settings</div>
+
+  <!-- ── GENERAL ─────────────────────────────────────────── -->
+  <div class="section" id="section-general">
+    <div class="section-title">
+      <i data-lucide="sliders-horizontal" size="20"></i>
+      General
+    </div>
+
+    <div class="field">
+      <label for="input-delay">Default poll interval (minutes)</label>
+      <span class="field-hint">How often the watcher checks each channel for new videos. Per-channel overrides on the Channels page take precedence.</span>
+      <input type="number" id="input-delay" min="1" max="10080" value="60">
+    </div>
+
+    <div class="save-row">
+      <button class="btn btn-primary" id="btn-save-general" onclick="saveGeneral()">
+        <i data-lucide="save" size="16"></i> Save
+      </button>
+    </div>
+  </div>
+
+  <!-- ── STORAGE ─────────────────────────────────────────── -->
+  <div class="section" id="section-storage">
+    <div class="section-title">
+      <i data-lucide="hard-drive" size="20"></i>
+      Storage
+    </div>
+
+    <div class="field">
+      <label for="input-videos-dir">Videos directory</label>
+      <span class="field-hint">Where downloaded videos are stored. Changing this does not move existing files.</span>
+      <input type="text" id="input-videos-dir" placeholder="/home/user/.nyt/videos">
+    </div>
+
+    <div class="save-row">
+      <button class="btn btn-primary" id="btn-save-storage" onclick="saveStorage()">
+        <i data-lucide="save" size="16"></i> Save
+      </button>
+    </div>
+  </div>
+
+  <!-- ── AUTHENTICATION ──────────────────────────────────── -->
+  <div class="section" id="section-auth">
+    <div class="section-title">
+      <i data-lucide="shield" size="20"></i>
+      Authentication
+    </div>
+
+    <div class="auth-status-row">
+      <span class="auth-status-label">Status</span>
+      <span id="auth-badge" class="badge badge-off">Disabled</span>
+    </div>
+
+    <!-- Enable auth (shown when disabled) -->
+    <div id="auth-enable-form">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        Set a username and password to protect your instance. All pages will require login after saving.
+      </p>
+      <div class="field">
+        <label for="input-new-username">Username</label>
+        <input type="text" id="input-new-username" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="input-new-password">Password</label>
+        <input type="password" id="input-new-password" autocomplete="new-password">
+      </div>
+      <div class="save-row">
+        <button class="btn btn-primary" id="btn-enable-auth" onclick="enableAuth()">
+          <i data-lucide="lock" size="16"></i> Enable auth
+        </button>
+      </div>
+    </div>
+
+    <!-- Change credentials (shown when enabled) -->
+    <div id="auth-change-form" style="display:none">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        Update the admin username or password. You must enter your current password to save changes.
+      </p>
+      <div class="field">
+        <label for="input-change-username">Username</label>
+        <input type="text" id="input-change-username" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="input-change-current">Current password</label>
+        <input type="password" id="input-change-current" autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="input-change-new">New password</label>
+        <input type="password" id="input-change-new" autocomplete="new-password" placeholder="Leave blank to keep current">
+      </div>
+      <div class="save-row">
+        <button class="btn btn-primary" id="btn-change-auth" onclick="changeAuth()">
+          <i data-lucide="save" size="16"></i> Update credentials
+        </button>
+      </div>
+
+      <div class="danger-zone">
+        <div class="danger-title">Disable authentication</div>
+        <p class="danger-desc">Removes the password requirement. Anyone with network access to this instance will be able to use it.</p>
+        <button class="btn btn-danger" onclick="openDisableConfirm()">
+          <i data-lucide="shield-off" size="16"></i> Disable auth
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONFIRM DIALOG ─────────────────────────────────────── -->
+<div class="overlay" id="confirm-overlay" onclick="overlayClick(event)">
+  <div class="dialog">
+    <div class="dialog-title" id="confirm-title">Are you sure?</div>
+    <div class="dialog-msg" id="confirm-msg"></div>
+    <div id="confirm-password-wrap">
+      <label id="confirm-password-label" for="confirm-password">Current password</label>
+      <input type="password" id="confirm-password" autocomplete="current-password">
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm(false)">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok" onclick="closeConfirm(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let _confirmResolve = null;
+
+  function showConfirm(title, msg) {
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-msg').textContent = msg;
+    document.getElementById('confirm-password').value = '';
+    document.getElementById('confirm-overlay').classList.add('open');
+    return new Promise(res => { _confirmResolve = res; });
+  }
+
+  function closeConfirm(result) {
+    document.getElementById('confirm-overlay').classList.remove('open');
+    if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+  }
+
+  function overlayClick(e) {
+    if (e.target === document.getElementById('confirm-overlay')) closeConfirm(false);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeConfirm(false);
+  });
+
+  // ── Toast ──────────────────────────────────────────────
+  let _toastTimer;
+  function showToast(msg, error = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show' + (error ? ' error' : '');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { t.className = ''; }, 3000);
+  }
+
+  // ── API helper ─────────────────────────────────────────
+  async function apiFetch(url, opts = {}) {
+    const res = await fetch(url, opts);
+    if (res.status === 401 && url !== '/api/v1/auth/status') {
+      window.location.replace('/login');
+      return null;
+    }
+    return res;
+  }
+
+  // ── Auth ───────────────────────────────────────────────
+  async function logout() {
+    await apiFetch('/api/v1/auth/logout', { method: 'POST' });
+    window.location.replace('/login');
+  }
+
+  // ── Load settings ──────────────────────────────────────
+  let _authEnabled = false;
+  let _currentUsername = '';
+
+  async function loadSettings() {
+    const statusRes = await apiFetch('/api/v1/auth/status');
+    if (!statusRes) return;
+    const status = await statusRes.json();
+    if (status.auth_enabled && status.logged_in) {
+      document.getElementById('btn-logout').style.display = '';
+    }
+
+    const res = await apiFetch('/api/v1/settings');
+    if (!res) return;
+    const data = await res.json();
+    const s = data.settings;
+
+    document.getElementById('input-delay').value = s.watch_delay_minutes;
+    document.getElementById('input-videos-dir').value = s.videos_directory;
+
+    _authEnabled = s.auth_enabled;
+    _currentUsername = s.admin_username || '';
+
+    const badge = document.getElementById('auth-badge');
+    if (s.auth_enabled) {
+      badge.textContent = 'Enabled';
+      badge.className = 'badge badge-on';
+      document.getElementById('auth-enable-form').style.display = 'none';
+      document.getElementById('auth-change-form').style.display = '';
+      document.getElementById('input-change-username').value = s.admin_username;
+    } else {
+      badge.textContent = 'Disabled';
+      badge.className = 'badge badge-off';
+      document.getElementById('auth-enable-form').style.display = '';
+      document.getElementById('auth-change-form').style.display = 'none';
+    }
+  }
+
+  // ── General ───────────────────────────────────────────
+  async function saveGeneral() {
+    const btn = document.getElementById('btn-save-general');
+    const delay = parseInt(document.getElementById('input-delay').value, 10);
+    const dir = document.getElementById('input-videos-dir').value.trim();
+
+    if (!delay || delay < 1) { showToast('Interval must be at least 1 minute', true); return; }
+    if (!dir) { showToast('Videos directory cannot be empty', true); return; }
+
+    btn.disabled = true;
+    const res = await apiFetch('/api/v1/settings/general', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ watch_delay_minutes: delay, videos_directory: dir }),
+    });
+    btn.disabled = false;
+    if (!res) return;
+    const data = await res.json();
+    if (data.ok) showToast('General settings saved');
+    else showToast(data.message || 'Failed to save', true);
+  }
+
+  // ── Storage (same endpoint as general) ─────────────────
+  async function saveStorage() {
+    const btn = document.getElementById('btn-save-storage');
+    const delay = parseInt(document.getElementById('input-delay').value, 10) || 60;
+    const dir = document.getElementById('input-videos-dir').value.trim();
+
+    if (!dir) { showToast('Videos directory cannot be empty', true); return; }
+
+    btn.disabled = true;
+    const res = await apiFetch('/api/v1/settings/general', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ watch_delay_minutes: delay, videos_directory: dir }),
+    });
+    btn.disabled = false;
+    if (!res) return;
+    const data = await res.json();
+    if (data.ok) showToast('Storage settings saved');
+    else showToast(data.message || 'Failed to save', true);
+  }
+
+  // ── Enable auth ───────────────────────────────────────
+  async function enableAuth() {
+    const btn = document.getElementById('btn-enable-auth');
+    const username = document.getElementById('input-new-username').value.trim();
+    const password = document.getElementById('input-new-password').value;
+
+    if (!username) { showToast('Username cannot be empty', true); return; }
+    if (!password) { showToast('Password cannot be empty', true); return; }
+
+    btn.disabled = true;
+    const res = await apiFetch('/api/v1/settings/auth', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, current_password: '', new_password: password }),
+    });
+    btn.disabled = false;
+    if (!res) return;
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Auth enabled — you will need to log in');
+      setTimeout(() => loadSettings(), 800);
+    } else {
+      showToast(data.message || 'Failed to enable auth', true);
+    }
+  }
+
+  // ── Change credentials ────────────────────────────────
+  async function changeAuth() {
+    const btn = document.getElementById('btn-change-auth');
+    const username = document.getElementById('input-change-username').value.trim();
+    const current = document.getElementById('input-change-current').value;
+    const newPw   = document.getElementById('input-change-new').value;
+
+    if (!username) { showToast('Username cannot be empty', true); return; }
+    if (!current)  { showToast('Current password is required', true); return; }
+    if (!newPw)    { showToast('New password cannot be empty', true); return; }
+
+    btn.disabled = true;
+    const res = await apiFetch('/api/v1/settings/auth', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, current_password: current, new_password: newPw }),
+    });
+    btn.disabled = false;
+    if (!res) return;
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Credentials updated');
+      document.getElementById('input-change-current').value = '';
+      document.getElementById('input-change-new').value = '';
+      document.getElementById('input-change-username').value = username;
+    } else {
+      showToast(data.message || 'Failed to update', true);
+    }
+  }
+
+  // ── Disable auth ──────────────────────────────────────
+  async function openDisableConfirm() {
+    const confirmed = await showConfirm(
+      'Disable authentication?',
+      'Anyone with network access to this instance will be able to use it without a password.'
+    );
+    if (!confirmed) return;
+
+    const password = document.getElementById('confirm-password').value;
+    if (!password) { showToast('Password is required to disable auth', true); return; }
+
+    const res = await apiFetch('/api/v1/settings/auth/disable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: password }),
+    });
+    if (!res) return;
+    const data = await res.json();
+    if (data.ok) {
+      showToast('Authentication disabled');
+      setTimeout(() => loadSettings(), 800);
+    } else {
+      showToast(data.message || 'Failed to disable auth', true);
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    loadSettings();
+  });
+</script>
+</body>
+</html>

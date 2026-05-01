@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nyt — No YouTube</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #fef6e4;
+      --surface:   #fffdf8;
+      --ink:       #2d2b26;
+      --shadow:    #e0c898;
+      --coral:     #f4845f;
+      --coral-bg:  #fde8e0;
+      --muted:     #a09880;
+      --font-hand: 'Caveat', cursive;
+      --font-body: 'Nunito', sans-serif;
+      --radius-card: 14px 8px 16px 10px / 10px 16px 8px 14px;
+      --radius-pill: 50px 40px 48px 44px / 42px 50px 40px 46px;
+    }
+
+    html, body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle, #d9c9a3 1.2px, transparent 1.2px);
+      background-size: 26px 26px;
+      color: var(--ink);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ───────────────────────────────────────────── */
+    nav {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--ink);
+      border-bottom: 2.5px solid var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo img { height: 38px; width: auto; display: block; }
+
+    .nav-center {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .nav-link {
+      font-family: var(--font-hand);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--surface);
+      text-decoration: none;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+
+    .nav-link:hover, .nav-link.active { opacity: 1; }
+
+    .watcher-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--muted);
+      display: inline-block;
+      transition: background 0.4s;
+      cursor: default;
+    }
+
+    .watcher-dot.active { background: #6bcb77; }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #btn-logout {
+      background: none;
+      border: 1.5px solid var(--shadow);
+      color: var(--surface);
+      font-family: var(--font-hand);
+      font-size: 16px;
+      padding: 4px 14px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.15s;
+    }
+
+    #btn-logout:hover { opacity: 1; }
+
+    /* ── TOOLBAR ───────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar label {
+      font-family: var(--font-hand);
+      font-size: 18px;
+      color: var(--muted);
+    }
+
+    .toolbar select {
+      font-family: var(--font-body);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      background: var(--surface);
+      border: 2px solid var(--ink);
+      border-radius: var(--radius-pill);
+      padding: 4px 12px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* ── MAIN ──────────────────────────────────────────── */
+    main {
+      max-width: 1720px;
+      margin: 0 auto;
+      padding: 32px 22px 72px;
+    }
+
+    /* ── GRID ──────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    /* ── CARD ──────────────────────────────────────────── */
+    .card {
+      display: block;
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 5px 5px 0 var(--shadow);
+      overflow: hidden;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.2s;
+      outline: none;
+    }
+
+    .card.watched { opacity: 0.55; }
+
+    .card:nth-child(odd):hover  { transform: translateY(-5px) rotate(-0.7deg); box-shadow: 8px 8px 0 var(--shadow); }
+    .card:nth-child(even):hover { transform: translateY(-5px) rotate( 0.7deg); box-shadow: 8px 8px 0 var(--shadow); }
+    .card.watched:hover { opacity: 0.75; }
+
+    .card:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+
+    .card-thumb-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #e8dfc8;
+      overflow: hidden;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .card-thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.22s ease;
+    }
+
+    .card:hover .card-thumb { transform: scale(1.04); }
+
+    .watched-badge {
+      display: none;
+      position: absolute;
+      top: 7px;
+      right: 8px;
+      background: var(--coral);
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .card.watched .watched-badge { display: flex; }
+
+    .stream-badge {
+      position: absolute;
+      bottom: 7px;
+      left: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: rgba(45, 43, 38, 0.72);
+      border: 1.5px solid rgba(255,253,248,0.4);
+      border-radius: 20px;
+      font-family: var(--font-hand);
+      font-size: 13px;
+      font-weight: 700;
+      color: #fffdf8;
+      pointer-events: none;
+    }
+
+    .card-body {
+      padding: 12px 14px 14px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      background: var(--surface);
+    }
+
+    .card-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid var(--ink);
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #e8dfc8;
+      margin-top: 1px;
+    }
+
+    .card-meta { flex: 1; min-width: 0; }
+
+    .card-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.38;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 3px;
+    }
+
+    .card-channel {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── SKELETON ──────────────────────────────────────── */
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .shimmer {
+      background: linear-gradient(90deg, #ede3ce 25%, #f5edd8 50%, #ede3ce 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite;
+    }
+
+    .skel {
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: var(--radius-card);
+      box-shadow: 5px 5px 0 var(--shadow);
+      overflow: hidden;
+    }
+
+    .skel-thumb { width: 100%; aspect-ratio: 16/9; }
+
+    .skel-body { padding: 12px 14px 14px; display: flex; gap: 10px; }
+
+    .skel-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; }
+
+    .skel-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 3px; }
+
+    .skel-line { height: 12px; border-radius: 6px; }
+    .skel-line.w60 { width: 60%; }
+
+    /* ── STATES ────────────────────────────────────────── */
+    .state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 56vh;
+      text-align: center;
+      gap: 12px;
+      padding: 0 20px;
+    }
+
+    .state-icon { width: 56px; height: 56px; margin-bottom: 4px; color: var(--muted); }
+    .state-icon.coral { color: var(--coral); }
+
+    .state h2 { font-family: var(--font-hand); font-size: 30px; font-weight: 700; color: var(--ink); }
+    .state p { font-size: 15px; color: var(--muted); font-weight: 600; line-height: 1.7; max-width: 360px; }
+    .err h2 { color: var(--coral); }
+
+    code {
+      font-family: var(--font-hand);
+      font-size: 15px;
+      color: var(--ink);
+      background: #fff3cd;
+      border: 2px solid var(--ink);
+      border-radius: 6px;
+      padding: 1px 8px;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">
+    <img src="/static/logo.svg" alt="nyt">
+  </a>
+  <div class="nav-center">
+    <a href="/" class="nav-link active">Videos</a>
+    <a href="/channels" class="nav-link">Channels</a>
+    <a href="/settings" class="nav-link">Settings</a>
+    <span class="watcher-dot" id="watcher-dot" title="Watcher idle"></span>
+  </div>
+  <div class="nav-right">
+    <button id="btn-logout" style="display:none" onclick="doLogout()">Sign out</button>
+  </div>
+</nav>
+
+<main>
+  <div class="toolbar" id="toolbar" style="display:none">
+    <label>Sort</label>
+    <select id="sort-by" onchange="renderVideos()">
+      <option value="date">By date</option>
+      <option value="channel">By channel</option>
+      <option value="unwatched">Unwatched first</option>
+    </select>
+    <label>Filter</label>
+    <select id="filter-by" onchange="renderVideos()">
+      <option value="all">All</option>
+      <option value="unwatched">Unwatched only</option>
+    </select>
+  </div>
+  <div id="root"></div>
+</main>
+
+<script>
+  const root = document.getElementById('root');
+  let allVideos = [];
+
+  /* ── Fetch wrapper: redirect to /login on 401 ──────────── */
+  async function apiFetch(url, options = {}) {
+    const res = await fetch(url, options);
+    if (res.status === 401) { window.location.replace('/login'); return null; }
+    return res;
+  }
+
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = String(str ?? '');
+    return d.innerHTML;
+  }
+
+  function skels(n) {
+    return `<div class="grid">${Array.from({ length: n }, () => `
+      <div class="skel">
+        <div class="skel-thumb shimmer"></div>
+        <div class="skel-body">
+          <div class="skel-avatar shimmer"></div>
+          <div class="skel-lines">
+            <div class="skel-line shimmer"></div>
+            <div class="skel-line w60 shimmer"></div>
+          </div>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  function card(v) {
+    return `
+      <a href="/watch/${esc(v.video_id)}" class="card${v.is_watched ? ' watched' : ''}"
+         onclick="markWatched(event,'${esc(v.video_id)}')">
+        <div class="card-thumb-wrap">
+          <img class="card-thumb" src="${esc(v.thumbnail_url)}" alt="${esc(v.video_title)}" loading="lazy">
+          <div class="watched-badge">
+            <i data-lucide="check" style="width:13px;height:13px;"></i>
+          </div>
+          ${!v.is_downloaded ? `<div class="stream-badge"><i data-lucide="wifi" style="width:11px;height:11px;"></i> Stream</div>` : ''}
+        </div>
+        <div class="card-body">
+          <img class="card-avatar" src="/api/v1/channels/${encodeURIComponent(v.channel_handle)}/avatar" alt="${esc(v.channel_handle)}" loading="lazy" onerror="this.style.visibility='hidden'">
+          <div class="card-meta">
+            <div class="card-title">${esc(v.video_title)}</div>
+            <div class="card-channel">${esc(v.channel_handle)}</div>
+          </div>
+        </div>
+      </a>`;
+  }
+
+  function renderVideos() {
+    const sort   = document.getElementById('sort-by').value;
+    const filter = document.getElementById('filter-by').value;
+
+    let videos = [...allVideos];
+
+    if (filter === 'unwatched') videos = videos.filter(v => !v.is_watched);
+
+    if (sort === 'date') {
+      videos.sort((a, b) => new Date(b.publish_date) - new Date(a.publish_date));
+    } else if (sort === 'channel') {
+      videos.sort((a, b) => a.channel_handle.localeCompare(b.channel_handle));
+    } else if (sort === 'unwatched') {
+      videos.sort((a, b) => a.is_watched - b.is_watched);
+    }
+
+    if (videos.length === 0) {
+      root.innerHTML = `
+        <div class="state">
+          <i data-lucide="inbox" class="state-icon"></i>
+          <h2>${filter === 'unwatched' ? 'All caught up!' : 'Nothing here yet!'}</h2>
+          <p>${filter === 'unwatched'
+            ? 'You have watched everything.'
+            : 'Start tracking a channel and videos will appear here.<br><code>nyt track --channel-handle &lt;handle&gt;</code>'
+          }</p>
+        </div>`;
+      lucide.createIcons();
+      return;
+    }
+
+    root.innerHTML = `<div class="grid">${videos.map(card).join('')}</div>`;
+    lucide.createIcons();
+  }
+
+  async function markWatched(e, videoId) {
+    const card = e.currentTarget;
+    if (!card.classList.contains('watched')) {
+      card.classList.add('watched');
+      apiFetch(`/api/v1/videos/${encodeURIComponent(videoId)}/watched`, { method: 'POST' });
+      const v = allVideos.find(x => x.video_id === videoId);
+      if (v) v.is_watched = true;
+    }
+  }
+
+  async function doLogout() {
+    await apiFetch('/api/v1/auth/logout', { method: 'POST' });
+    window.location.reload();
+  }
+
+  async function checkAuth() {
+    const res = await fetch('/api/v1/auth/status');
+    if (!res) return;
+    const { auth_enabled, logged_in } = await res.json();
+    if (auth_enabled && logged_in) {
+      document.getElementById('btn-logout').style.display = 'block';
+    }
+  }
+
+  async function pollWatcher() {
+    const res = await apiFetch('/api/v1/watcher/status');
+    if (!res) return;
+    const { watcher } = await res.json();
+    const dot = document.getElementById('watcher-dot');
+    if (watcher.last_run) {
+      const age = (Date.now() - new Date(watcher.last_run).getTime()) / 60000;
+      dot.classList.toggle('active', age < 10);
+      dot.title = `Last check: ${new Date(watcher.last_run).toLocaleTimeString()}`;
+    }
+  }
+
+  async function init() {
+    root.innerHTML = skels(12);
+    await checkAuth();
+
+    const res = await apiFetch('/api/v1/videos/list/');
+    if (!res) return;
+
+    if (!res.ok) {
+      root.innerHTML = `
+        <div class="state err">
+          <i data-lucide="wifi-off" class="state-icon coral"></i>
+          <h2>Can't reach the server</h2>
+          <p>Make sure the backend is running:<br><code>nyt serve</code></p>
+        </div>`;
+      lucide.createIcons();
+      return;
+    }
+
+    const { videos_info: videos } = await res.json();
+
+    if (!videos || videos.length === 0) {
+      root.innerHTML = `
+        <div class="state">
+          <i data-lucide="inbox" class="state-icon"></i>
+          <h2>Nothing here yet!</h2>
+          <p>Start tracking a channel and videos will appear here.<br>
+             Or visit <a href="/channels" style="color:var(--coral)">Channels</a> to add one.
+          </p>
+        </div>`;
+      lucide.createIcons();
+      return;
+    }
+
+    allVideos = videos;
+    document.getElementById('toolbar').style.display = 'flex';
+    renderVideos();
+    pollWatcher();
+    setInterval(pollWatcher, 30000);
+  }
+
+  init();
+</script>
+
+</body>
+</html>

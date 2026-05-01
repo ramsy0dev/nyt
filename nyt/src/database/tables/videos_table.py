@@ -1,31 +1,18 @@
-from sqlalchemy import (
-    Column,
-    String
-)
-from sqlalchemy.dialects.sqlite import (
-    DATETIME,
-    BOOLEAN,
-    INTEGER
-)
+from dataclasses import dataclass
+from datetime import datetime
 
-from nyt.src.database.tables.declarative_base import Base
 
-class Videos(Base):
-    """ videos table """
-    __tablename__ = "videos"
-
-    video_id        =   Column(String, primary_key=True, nullable=False)
-    channel_handle  =   Column(String, nullable=False)
-    thumbnail_url   =   Column(String, nullable=False)
-    title           =   Column(String, nullable=False)
-    publish_date    =   Column(DATETIME, nullable=False)
-    download_path   =   Column(String, nullable=False)
-    is_downloaded   =   Column(BOOLEAN, default=False, nullable=False)
-    size            =   Column(INTEGER, nullable=False)
-    is_watched      =   Column(BOOLEAN, default=False, nullable=False)
-    timestamp       =   Column(DATETIME, nullable=True)
-    updated_at      =   Column(DATETIME, nullable=True)
-    added_at        =   Column(DATETIME, nullable=False)
-
-    def __repr__(self):
-        return f"Videos(video_id={self.video_id!r}, thumbnail_url={self.thumbnail_url!r}, title={self.title!r}, publish_date={self.publish_date!r}, download_path={self.download_path!r}, is_downloaded={self.is_downloaded!r}, size={self.size!r}, is_watched={self.is_watched}, timstamp={self.timestamp}, updated_at={self.updated_at!r}, added_at={self.added_at!r})"
+@dataclass
+class Videos:
+    video_id:       str | None = None
+    channel_handle: str | None = None
+    thumbnail_url:  str | None = None
+    title:          str | None = None
+    publish_date:   datetime | None = None
+    download_path:  str | None = None
+    is_downloaded:  bool = False
+    size:           int = 0
+    is_watched:     bool = False
+    timestamp:      datetime | None = None
+    updated_at:     datetime | None = None
+    added_at:       datetime | None = None

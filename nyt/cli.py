@@ -1,10 +1,14 @@
 import sys
 import time
-import typer
+import hashlib
+import secrets
+import argparse
+import threading
 import uvicorn
 import logging
+import logging.handlers
 
-from rich import console
+from datetime import datetime, timezone, timedelta
 from loguru import logger
 
 from nyt import constant
@@ -12,132 +16,204 @@ from nyt import constant
 from nyt.src.nyt import NYT
 
 from nyt.src.api.api import api as nyt_api
-from nyt.src.logger.logger import (
-    InterceptHandler
-)
+from nyt.src.logger.logger import InterceptHandler
 
 # Models
-from nyt.src.models.config_model import Config
-
-# Config manager
 from nyt.src.config import ConfigManager
-
-# Utils
-from nyt.src.utils.assets import (
-    check_assets,
-    download_assets,
-    create_assets_prefix
-)
-
-# Init cli
-cli = typer.Typer()
+from nyt.src.utils import check_assets, download_assets, create_assets_prefix
 
 # Config manager
 config_manager = ConfigManager()
 config = config_manager.load_config()
 
-# Costum intercept handler
+# Custom intercept handler
 INTERCEPT_HANDLER = InterceptHandler()
 
-@cli.command()
-def version():
-    """ nyt version """
-    console.log(f"{constant.INFO} Version {constant.VERSION}")
+LOG_FORMAT = (
+    "<bold><fg #f4845f> nyt </fg #f4845f></bold>"
+    "<fg #a09880>{time:HH:mm:ss}</fg #a09880>"
+    "  <level>{level:<8}</level>"
+    "  {message}"
+)
 
-@cli.command()
-def track(
-    channel_handle: str = typer.Option(None, "--channel-handle", help="The channel's handle"),
-):
-    """ Add a YouTube channel to track """
+
+def cmd_version(args) -> None:
+    logger.info(f"Version {constant.VERSION}")
+
+
+def cmd_track(args) -> None:
     nyt = NYT()
-
-    rs_code = nyt.add_channel(
-        channel_handle=channel_handle
-    )
+    rs_code = nyt.add_channel(channel_handle=args.channel_handle)
     if rs_code == constant.CHANNEL_ALREADY_TRACKED:
-        logger.info(f"Channel '{channel_handle}' is already being tracked")
+        logger.info(f"Channel '{args.channel_handle}' is already being tracked")
         return
+    logger.info(f"Channel '{args.channel_handle}' added to be tracked")
 
-    logger.info(f"Channel '{channel_handle}' added to be tracked")
 
-@cli.command()
-def remove(
-    channel_handle: str = typer.Option(None, "--channel-handle", help="The channel's handle"),
-):
-    """ Remove a channel from being tracked """
+def cmd_remove(args) -> None:
     nyt = NYT()
-
-    rs_code = nyt.remove_channel(
-        channel_handle=channel_handle
-    )
+    rs_code = nyt.remove_channel(channel_handle=args.channel_handle)
     if rs_code == constant.CHANNEL_NOT_TRACKED:
-        logger.info(f"Channel '{channel_handle}' is not being tracked.")
+        logger.info(f"Channel '{args.channel_handle}' is not being tracked")
         return
+    logger.info(f"Channel '{args.channel_handle}' removed from being tracked")
 
-    logger.info(f"Channel '{channel_handle}' removed from being tracked.")
 
-@cli.command()
-def watch(
-    delay: int = typer.Option(30, "--delay", help="The delay between each check in minutes"),
-):
-    """ Watch the YouTube channels and look out for new uploads """
+def cmd_watch(args) -> None:
     nyt = NYT()
-
     while True:
         try:
             nyt.watch()
-        except KeyboardInterrupt or Exception:
-            sys.exit(1)
+        except KeyboardInterrupt:
+            logger.info("Stopped.")
+            sys.exit(0)
+        except Exception as error:
+            logger.error(f"Watch error: {error}")
 
-        logger.info(f"Sleeping for {(delay*60)/60} minutes")
+        logger.info(f"Sleeping for {args.delay} minute(s)")
+        time.sleep(args.delay * 60)
 
-        time.sleep(delay*60)
 
-@cli.command()
-def api(
-    host: str = typer.Option(config.API_HOST, "--host", help="The host for the API"),
-    port: int = typer.Option(config.API_PORT, "--port", help="The port for the API"),
-):
-    """ Serve the API """
+def _watcher_loop(delay_minutes: int) -> None:
+    from nyt.src.api.classes import classes
+    from nyt.src.api.watcher_state import watcher_state
+
+    while True:
+        watcher_state.running = True
+        try:
+            classes.nyt.watch()
+            watcher_state.last_run = datetime.now(timezone.utc)
+            watcher_state.error    = None
+        except Exception as e:
+            logger.error(f"Watcher error: {e}")
+            watcher_state.error = str(e)
+
+        watcher_state.next_run = datetime.now(timezone.utc) + timedelta(minutes=delay_minutes)
+        watcher_state.running  = False
+        time.sleep(60)  # tight loop; per-channel timing handled inside watch()
+
+
+def cmd_serve(args) -> None:
+    logger.info(f"Starting watcher thread (global interval: {args.delay} min)")
+    t = threading.Thread(
+        target=_watcher_loop,
+        args=(args.delay,),
+        daemon=True,
+        name="nyt-watcher",
+    )
+    t.start()
     uvicorn.run(
         nyt_api,
-        host=host,
-        port=port
+        host=args.host,
+        port=args.port,
+        log_config={
+            "version": 1,
+            "disable_existing_loggers": False,
+            "loggers": {
+                "uvicorn":        {"handlers": [], "level": "INFO", "propagate": True},
+                "uvicorn.access": {"handlers": [], "level": "INFO", "propagate": True},
+                "uvicorn.error":  {"handlers": [], "level": "INFO", "propagate": True},
+            },
+        },
     )
 
+
+def cmd_superuser(args) -> None:
+    salt    = secrets.token_hex(16)
+    pw_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        args.password.encode(),
+        salt.encode(),
+        200_000,
+    ).hex()
+    config_manager.save_auth(
+        username=args.username,
+        password_hash=pw_hash,
+        salt=salt,
+    )
+    logger.info(f"Superuser '{args.username}' configured. Restart the server to apply.")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="nyt",
+        description="No YouTube — self-hosted channel tracker and player",
+    )
+    sub = parser.add_subparsers(dest="command", metavar="<command>")
+
+    sub.add_parser("version", help="Show version")
+
+    p_track = sub.add_parser("track", help="Add a YouTube channel to track")
+    p_track.add_argument("--channel-handle", required=True, metavar="HANDLE",
+                         help="Channel handle (without @)")
+
+    p_remove = sub.add_parser("remove", help="Stop tracking a channel")
+    p_remove.add_argument("--channel-handle", required=True, metavar="HANDLE",
+                          help="Channel handle (without @)")
+
+    p_watch = sub.add_parser("watch", help="Poll channels for new uploads (standalone loop)")
+    p_watch.add_argument("--delay", type=int, default=config.WATCH_DELAY_MINUTES, metavar="MINUTES",
+                         help=f"Delay between checks in minutes (default: {config.WATCH_DELAY_MINUTES})")
+
+    p_serve = sub.add_parser("serve", help="Start the API server, web UI, and background watcher")
+    p_serve.add_argument("--host", default=config.API_HOST, metavar="HOST",
+                         help=f"Host to bind to (default: {config.API_HOST})")
+    p_serve.add_argument("--port", type=int, default=config.API_PORT, metavar="PORT",
+                         help=f"Port to bind to (default: {config.API_PORT})")
+    p_serve.add_argument("--delay", type=int, default=config.WATCH_DELAY_MINUTES, metavar="MINUTES",
+                         help=f"Global watcher interval (default: {config.WATCH_DELAY_MINUTES} min)")
+
+    p_super = sub.add_parser("superuser", help="Configure admin credentials for the web UI")
+    p_super.add_argument("--username", required=True, metavar="USERNAME")
+    p_super.add_argument("--password", required=True, metavar="PASSWORD")
+
+    return parser
+
+
+_DISPATCH = {
+    "version":   cmd_version,
+    "track":     cmd_track,
+    "remove":    cmd_remove,
+    "watch":     cmd_watch,
+    "serve":     cmd_serve,
+    "superuser": cmd_superuser,
+}
+
+
 def run() -> None:
-    """ main function """
-    # Configure the logger
-    log_level_str = "DEBUG"
+    # Configure loguru
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        format=LOG_FORMAT,
+        colorize=True,
+        level="DEBUG",
+    )
 
     handler = logging.handlers.RotatingFileHandler(
         filename=config.API_LOGS_FILE_PATH,
-        maxBytes=10*1024*1024,
-        backupCount=3
+        maxBytes=10 * 1024 * 1024,
+        backupCount=3,
     )
-    logger.add(handler, level=log_level_str)
+    logger.add(handler, level="DEBUG", format="{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | {message}")
 
-    SEEN = set()
+    # Route all stdlib loggers (including uvicorn's) through loguru via the root logger.
+    # uvicorn overwrites per-logger handlers when it starts, so we put the handler on
+    # the root and pass log_config to uvicorn that keeps propagate=True with no own handlers.
+    logging.root.handlers = [INTERCEPT_HANDLER]
+    logging.root.setLevel(logging.DEBUG)
 
-    for name in [
-        *logging.root.manager.loggerDict.keys(),
-        "gunicorn",
-        "gunicorn.access",
-        "gunicorn.error",
-        "uvicorn",
-        "uvicorn.access",
-        "uvicorn.error",
-    ]:
-        if name not in SEEN:
-            SEEN.add(name.split(".")[0])
-            logging.getLogger(name).handlers = [INTERCEPT_HANDLER]
-
-    # Create prefix directories
+    # Bootstrap directories and assets
     create_assets_prefix()
-
-    # Check if the nyt's logos are installed
     if not check_assets():
         download_assets()
 
-    cli()
+    # Parse and dispatch
+    parser = build_parser()
+    args = parser.parse_args()
 
+    if args.command is None:
+        parser.print_help()
+        sys.exit(1)
+
+    _DISPATCH[args.command](args)

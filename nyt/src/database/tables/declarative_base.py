@@ -1,4 +1,1 @@
-from sqlalchemy.orm import DeclarativeBase
-
-class Base(DeclarativeBase):
-    pass
+# No longer used — SQLAlchemy removed in favour of stdlib sqlite3.
