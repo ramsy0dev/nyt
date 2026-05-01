@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # ffmpeg is optional (only needed for quality-variant transcoding)
 RUN apt-get update \
