@@ -12,7 +12,7 @@ from loguru import logger
 from fastapi import FastAPI, Header, Request, Depends
 from fastapi.responses import (
     FileResponse,
-    ORJSONResponse,
+    JSONResponse,
     StreamingResponse,
     RedirectResponse,
 )
@@ -104,12 +104,12 @@ class LoginBody(BaseModel):
     password: str
 
 
-@api.post(f"{ROOT}/auth/login", response_class=ORJSONResponse)
+@api.post(f"{ROOT}/auth/login", response_class=JSONResponse)
 async def auth_login_route(body: LoginBody):
     config = ConfigManager().load_config()
     if not config.ADMIN_USERNAME:
         token = auth_manager.create_session()
-        resp  = ORJSONResponse({"ok": True})
+        resp  = JSONResponse({"ok": True})
         resp.set_cookie("nyt_session", token, httponly=True, samesite="strict", max_age=86400 * 30)
         return resp
 
@@ -121,51 +121,51 @@ async def auth_login_route(body: LoginBody):
     ).hex()
 
     if body.username != config.ADMIN_USERNAME or pw_hash != config.ADMIN_PASSWORD_HASH:
-        return ORJSONResponse({"ok": False, "message": "Invalid credentials"}, status_code=401)
+        return JSONResponse({"ok": False, "message": "Invalid credentials"}, status_code=401)
 
     token = auth_manager.create_session()
-    resp  = ORJSONResponse({"ok": True})
+    resp  = JSONResponse({"ok": True})
     resp.set_cookie("nyt_session", token, httponly=True, samesite="strict", max_age=86400 * 30)
     return resp
 
 
-@api.post(f"{ROOT}/auth/refresh", response_class=ORJSONResponse)
+@api.post(f"{ROOT}/auth/refresh", response_class=JSONResponse)
 async def auth_refresh_route(request: Request):
     if not auth_manager.is_auth_enabled():
-        return ORJSONResponse({"ok": True, "refreshed": False})
+        return JSONResponse({"ok": True, "refreshed": False})
     token = request.cookies.get("nyt_session")
     if not token or not auth_manager.validate_session(token):
-        return ORJSONResponse({"ok": False}, status_code=401)
+        return JSONResponse({"ok": False}, status_code=401)
     new_token = auth_manager.create_session()
-    resp = ORJSONResponse({"ok": True, "refreshed": True})
+    resp = JSONResponse({"ok": True, "refreshed": True})
     resp.set_cookie("nyt_session", new_token, httponly=True, samesite="strict", max_age=86400 * 30)
     return resp
 
 
-@api.post(f"{ROOT}/auth/logout", response_class=ORJSONResponse)
+@api.post(f"{ROOT}/auth/logout", response_class=JSONResponse)
 async def auth_logout_route(request: Request):
     token = request.cookies.get("nyt_session")
     if token:
         auth_manager.revoke_session(token)
-    resp = ORJSONResponse({"ok": True})
+    resp = JSONResponse({"ok": True})
     resp.delete_cookie("nyt_session")
     return resp
 
 
-@api.get(f"{ROOT}/auth/status", response_class=ORJSONResponse)
+@api.get(f"{ROOT}/auth/status", response_class=JSONResponse)
 async def auth_status_route(request: Request):
     enabled = auth_manager.is_auth_enabled()
     token   = request.cookies.get("nyt_session")
     logged_in = bool(token and auth_manager.validate_session(token))
-    return ORJSONResponse({"auth_enabled": enabled, "logged_in": logged_in})
+    return JSONResponse({"auth_enabled": enabled, "logged_in": logged_in})
 
 
 # ── Watcher status ────────────────────────────────────────────────────────────
 
-@api.get(f"{ROOT}/watcher/status", response_class=ORJSONResponse,
+@api.get(f"{ROOT}/watcher/status", response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def watcher_status_route():
-    return ORJSONResponse({
+    return JSONResponse({
         "status_code": 200,
         "watcher": {
             "running":  watcher_state.running,
@@ -202,45 +202,45 @@ async def download_progress_sse(request: Request):
 
 # ── API root ──────────────────────────────────────────────────────────────────
 
-@api.get(ROOT, status_code=200, response_class=ORJSONResponse)
+@api.get(ROOT, status_code=200, response_class=JSONResponse)
 async def root_route():
-    return ORJSONResponse([{"code": 200}])
+    return JSONResponse([{"code": 200}])
 
 
 # ── Channel routes ────────────────────────────────────────────────────────────
 
-@api.get(f"{ROOT}/channels", status_code=200, response_class=ORJSONResponse)
+@api.get(f"{ROOT}/channels", status_code=200, response_class=JSONResponse)
 async def root_channels_route():
-    return ORJSONResponse({"code": 200, "message": "root channels route"})
+    return JSONResponse({"code": 200, "message": "root channels route"})
 
 
-@api.get(f"{ROOT}/channels/list", status_code=200, response_class=ORJSONResponse,
+@api.get(f"{ROOT}/channels/list", status_code=200, response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def list_channels_route():
-    return ORJSONResponse({
+    return JSONResponse({
         "status_code": 200,
         "tracked_channels": classes.tracked_channels.list_tracked_channels(),
     })
 
 
-@api.get(f"{ROOT}/channels/search", status_code=200, response_class=ORJSONResponse,
+@api.get(f"{ROOT}/channels/search", status_code=200, response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def search_channels_route(handle: str):
     result = classes.tracked_channels.search_channel(handle)
     if result is None:
-        return ORJSONResponse({"status_code": 404, "result": None}, status_code=404)
-    return ORJSONResponse({"status_code": 200, "result": result})
+        return JSONResponse({"status_code": 404, "result": None}, status_code=404)
+    return JSONResponse({"status_code": 200, "result": result})
 
 
-@api.post(f"{ROOT}/channels/add", status_code=200, response_class=ORJSONResponse,
+@api.post(f"{ROOT}/channels/add", status_code=200, response_class=JSONResponse,
           dependencies=[Depends(require_auth)])
 async def add_channels_route(channel_handle: str):
-    return ORJSONResponse(
+    return JSONResponse(
         classes.tracked_channels.add_channel_to_tracked_list(channel_handle=channel_handle)
     )
 
 
-@api.put(f"{ROOT}/channels/{{channel_handle}}/delay", status_code=200, response_class=ORJSONResponse,
+@api.put(f"{ROOT}/channels/{{channel_handle}}/delay", status_code=200, response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def set_channel_delay_route(channel_handle: str, body: dict):
     delay = body.get("delay_minutes")
@@ -248,23 +248,23 @@ async def set_channel_delay_route(channel_handle: str, body: dict):
         channel_handle=channel_handle,
         delay_minutes=int(delay) if delay is not None else None,
     )
-    return ORJSONResponse({"status_code": 200})
+    return JSONResponse({"status_code": 200})
 
 
-@api.put(f"{ROOT}/channels/{{channel_handle}}/auto-download", status_code=200, response_class=ORJSONResponse,
+@api.put(f"{ROOT}/channels/{{channel_handle}}/auto-download", status_code=200, response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def set_channel_auto_download_route(channel_handle: str, body: dict):
     classes.database_handler.update_channel_auto_download(
         channel_handle=channel_handle,
         auto_download=bool(body.get("auto_download", True)),
     )
-    return ORJSONResponse({"status_code": 200})
+    return JSONResponse({"status_code": 200})
 
 
-@api.delete(f"{ROOT}/channels/delete/{{channel_handle}}", status_code=200, response_class=ORJSONResponse,
+@api.delete(f"{ROOT}/channels/delete/{{channel_handle}}", status_code=200, response_class=JSONResponse,
             dependencies=[Depends(require_auth)])
 async def delete_channels_route(channel_handle: str):
-    return ORJSONResponse(
+    return JSONResponse(
         classes.tracked_channels.remove_channel_from_tracked_list(channel_handle=channel_handle)
     )
 
@@ -279,64 +279,64 @@ async def channel_avatar_route(channel_handle: str):
     if not cached.exists():
         channel = classes.database_handler.get_channel_row(channel_handle=channel_handle)
         if channel is None:
-            return ORJSONResponse({"detail": "not found"}, status_code=404)
+            return JSONResponse({"detail": "not found"}, status_code=404)
         url = channel.channel_avatar_url_high or channel.channel_avatar_url_medium or channel.channel_avatar_url_default
         if not url:
-            return ORJSONResponse({"detail": "no avatar url"}, status_code=404)
+            return JSONResponse({"detail": "no avatar url"}, status_code=404)
         try:
             res = _requests.get(url, timeout=15)
             res.raise_for_status()
             cached.write_bytes(res.content)
         except Exception:
-            return ORJSONResponse({"detail": "fetch failed"}, status_code=502)
+            return JSONResponse({"detail": "fetch failed"}, status_code=502)
 
     return FileResponse(str(cached), media_type="image/jpeg")
 
 
 # ── Video routes ──────────────────────────────────────────────────────────────
 
-@api.get(f"{ROOT}/videos", status_code=200, response_class=ORJSONResponse)
+@api.get(f"{ROOT}/videos", status_code=200, response_class=JSONResponse)
 async def videos_root_route():
-    return ORJSONResponse({"status_code": 200, "message": "videos root route"})
+    return JSONResponse({"status_code": 200, "message": "videos root route"})
 
 
-@api.get(f"{ROOT}/videos/list/", status_code=200, response_class=ORJSONResponse,
+@api.get(f"{ROOT}/videos/list/", status_code=200, response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 def list_videos_route():
-    return ORJSONResponse({
+    return JSONResponse({
         "status_code": 200,
         "videos_info": classes.videos_handler.list_videos(),
     })
 
 
-@api.post(f"{ROOT}/videos/{{video_id}}/watched", status_code=200, response_class=ORJSONResponse,
+@api.post(f"{ROOT}/videos/{{video_id}}/watched", status_code=200, response_class=JSONResponse,
           dependencies=[Depends(require_auth)])
 async def mark_video_watched_route(video_id: str):
     classes.database_handler.update_videos_values(
         video_id=video_id,
         values={"is_watched": True, "timestamp": date_in_gmt()},
     )
-    return ORJSONResponse({"status_code": 200})
+    return JSONResponse({"status_code": 200})
 
 
-@api.post(f"{ROOT}/videos/{{video_id}}/unwatched", status_code=200, response_class=ORJSONResponse,
+@api.post(f"{ROOT}/videos/{{video_id}}/unwatched", status_code=200, response_class=JSONResponse,
           dependencies=[Depends(require_auth)])
 async def mark_video_unwatched_route(video_id: str):
     classes.database_handler.update_videos_values(
         video_id=video_id,
         values={"is_watched": False, "timestamp": date_in_gmt()},
     )
-    return ORJSONResponse({"status_code": 200})
+    return JSONResponse({"status_code": 200})
 
 
-@api.post(f"{ROOT}/videos/{{video_id}}/download", status_code=202, response_class=ORJSONResponse,
+@api.post(f"{ROOT}/videos/{{video_id}}/download", status_code=202, response_class=JSONResponse,
           dependencies=[Depends(require_auth)])
 async def download_video_route(video_id: str):
     video = classes.database_handler.get_video_from_videos(video_id=video_id)
     if not video:
-        return ORJSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
+        return JSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
     if video.is_downloaded:
-        return ORJSONResponse({"status_code": 409, "message": "Already downloaded"}, status_code=409)
+        return JSONResponse({"status_code": 409, "message": "Already downloaded"}, status_code=409)
 
     config = ConfigManager().load_config()
 
@@ -366,7 +366,7 @@ async def download_video_route(video_id: str):
             logger.warning(f"Manual download failed for '{video_id}': {exc}")
 
     threading.Thread(target=_do_download, daemon=True).start()
-    return ORJSONResponse({"status_code": 202, "message": "Download started"})
+    return JSONResponse({"status_code": 202, "message": "Download started"})
 
 
 def _delete_video_files(video) -> None:
@@ -380,14 +380,14 @@ def _delete_video_files(video) -> None:
                 pass
 
 
-@api.delete(f"{ROOT}/videos/{{video_id}}/file", status_code=200, response_class=ORJSONResponse,
+@api.delete(f"{ROOT}/videos/{{video_id}}/file", status_code=200, response_class=JSONResponse,
             dependencies=[Depends(require_auth)])
 async def delete_video_file_route(video_id: str):
     video = classes.database_handler.get_video_from_videos(video_id=video_id)
     if not video:
-        return ORJSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
+        return JSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
     if not video.is_downloaded:
-        return ORJSONResponse({"status_code": 409, "message": "Not downloaded"}, status_code=409)
+        return JSONResponse({"status_code": 409, "message": "Not downloaded"}, status_code=409)
     _delete_video_files(video)
     classes.database_handler.update_videos_values(video_id=video_id, values={
         "is_downloaded": False,
@@ -396,38 +396,38 @@ async def delete_video_file_route(video_id: str):
         "variants":      [],
         "subtitles":     [],
     })
-    return ORJSONResponse({"status_code": 200})
+    return JSONResponse({"status_code": 200})
 
 
-@api.delete(f"{ROOT}/videos/{{video_id}}", status_code=200, response_class=ORJSONResponse,
+@api.delete(f"{ROOT}/videos/{{video_id}}", status_code=200, response_class=JSONResponse,
             dependencies=[Depends(require_auth)])
 async def delete_video_route(video_id: str):
     video = classes.database_handler.get_video_from_videos(video_id=video_id)
     if not video:
-        return ORJSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
+        return JSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
     if video.is_downloaded:
         _delete_video_files(video)
     classes.database_handler.delete_video_row(video_id=video_id)
-    return ORJSONResponse({"status_code": 200})
+    return JSONResponse({"status_code": 200})
 
 
-@api.get(f"{ROOT}/videos/{{video_id}}/status", status_code=200, response_class=ORJSONResponse,
+@api.get(f"{ROOT}/videos/{{video_id}}/status", status_code=200, response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def video_status_route(video_id: str):
     is_present = classes.database_handler.get_video_from_videos(video_id=video_id) is not None
-    return ORJSONResponse({
+    return JSONResponse({
         "status_code": 200,
         "video_status": {"is_present": is_present},
     })
 
 
-@api.get(f"{ROOT}/videos/{{video_id}}/metadata", response_class=ORJSONResponse,
+@api.get(f"{ROOT}/videos/{{video_id}}/metadata", response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def get_video_metadata_route(video_id: str):
     video = classes.database_handler.get_video_from_videos(video_id=video_id)
     if not video:
-        return ORJSONResponse({"detail": "not found"}, status_code=404)
-    return ORJSONResponse({
+        return JSONResponse({"detail": "not found"}, status_code=404)
+    return JSONResponse({
         "status_code": 200,
         "subtitles":   video.subtitles or [],
         "chapters":    video.chapters  or [],
@@ -439,16 +439,16 @@ async def get_subtitle_route(video_id: str, lang: str):
     import os
     video = classes.database_handler.get_video_from_videos(video_id=video_id)
     if not video:
-        return ORJSONResponse({"detail": "not found"}, status_code=404)
+        return JSONResponse({"detail": "not found"}, status_code=404)
     for sub in (video.subtitles or []):
         if sub.get("lang") == lang:
             path = sub.get("path", "")
             if path and os.path.exists(path):
                 return FileResponse(path, media_type="text/vtt")
-    return ORJSONResponse({"detail": "subtitle not found"}, status_code=404)
+    return JSONResponse({"detail": "subtitle not found"}, status_code=404)
 
 
-@api.get(f"{ROOT}/videos/{{video_id}}/formats", response_class=ORJSONResponse,
+@api.get(f"{ROOT}/videos/{{video_id}}/formats", response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def get_video_formats_route(video_id: str):
     config = ConfigManager().load_config()
@@ -456,15 +456,15 @@ async def get_video_formats_route(video_id: str):
 
     if video and video.is_downloaded and video.download_path:
         if not config.TRANSCODING_ENABLED:
-            return ORJSONResponse({"status_code": 403, "message": "Transcoding is disabled"}, status_code=403)
+            return JSONResponse({"status_code": 403, "message": "Transcoding is disabled"}, status_code=403)
         formats = classes.videos_handler.get_local_formats(video_id)
-        return ORJSONResponse({"status_code": 200, "formats": formats, "is_local": True})
+        return JSONResponse({"status_code": 200, "formats": formats, "is_local": True})
 
     if not config.QUALITY_SELECTION_ENABLED:
-        return ORJSONResponse({"status_code": 403, "message": "Quality selection is disabled"}, status_code=403)
+        return JSONResponse({"status_code": 403, "message": "Quality selection is disabled"}, status_code=403)
 
     formats = classes.videos_handler.get_formats(video_id)
-    return ORJSONResponse({"status_code": 200, "formats": formats, "is_local": False})
+    return JSONResponse({"status_code": 200, "formats": formats, "is_local": False})
 
 
 @api.get(f"{ROOT}/videos/{{video_id}}", status_code=200, response_class=StreamingResponse)
@@ -484,12 +484,12 @@ async def get_videos_route(video_id: str, range_header: str = Header(None), form
 
 # ── Settings routes ───────────────────────────────────────────────────────────
 
-@api.get(f"{ROOT}/settings", response_class=ORJSONResponse,
+@api.get(f"{ROOT}/settings", response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def get_settings_route():
     config     = ConfigManager().load_config()
     used_bytes = classes.database_handler.get_storage_used_bytes()
-    return ORJSONResponse({
+    return JSONResponse({
         "status_code": 200,
         "settings": {
             "watch_delay_minutes":       config.WATCH_DELAY_MINUTES,
@@ -514,11 +514,11 @@ class GeneralSettingsBody(BaseModel):
     auto_delete_watched_days: int | None = None
 
 
-@api.put(f"{ROOT}/settings/general", response_class=ORJSONResponse,
+@api.put(f"{ROOT}/settings/general", response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def update_general_settings_route(body: GeneralSettingsBody):
     if body.watch_delay_minutes < 1:
-        return ORJSONResponse({"ok": False, "message": "Interval must be at least 1 minute"}, status_code=422)
+        return JSONResponse({"ok": False, "message": "Interval must be at least 1 minute"}, status_code=422)
     ConfigManager().save_settings(
         watch_delay_minutes=body.watch_delay_minutes,
         videos_directory=body.videos_directory.strip() or None,
@@ -527,7 +527,7 @@ async def update_general_settings_route(body: GeneralSettingsBody):
         transcoding_enabled=body.transcoding_enabled,
         auto_delete_watched_days=body.auto_delete_watched_days,
     )
-    return ORJSONResponse({"ok": True})
+    return JSONResponse({"ok": True})
 
 
 class AuthSettingsBody(BaseModel):
@@ -536,7 +536,7 @@ class AuthSettingsBody(BaseModel):
     new_password: str
 
 
-@api.put(f"{ROOT}/settings/auth", response_class=ORJSONResponse,
+@api.put(f"{ROOT}/settings/auth", response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def update_auth_settings_route(body: AuthSettingsBody):
     config = ConfigManager().load_config()
@@ -545,34 +545,34 @@ async def update_auth_settings_route(body: AuthSettingsBody):
             "sha256", body.current_password.encode(), config.ADMIN_SALT.encode(), 200_000
         ).hex()
         if pw_hash != config.ADMIN_PASSWORD_HASH:
-            return ORJSONResponse({"ok": False, "message": "Current password is incorrect"}, status_code=401)
+            return JSONResponse({"ok": False, "message": "Current password is incorrect"}, status_code=401)
     if not body.username.strip():
-        return ORJSONResponse({"ok": False, "message": "Username cannot be empty"}, status_code=422)
+        return JSONResponse({"ok": False, "message": "Username cannot be empty"}, status_code=422)
     if not body.new_password:
-        return ORJSONResponse({"ok": False, "message": "Password cannot be empty"}, status_code=422)
+        return JSONResponse({"ok": False, "message": "Password cannot be empty"}, status_code=422)
     salt    = secrets.token_hex(16)
     pw_hash = hashlib.pbkdf2_hmac("sha256", body.new_password.encode(), salt.encode(), 200_000).hex()
     ConfigManager().save_auth(body.username.strip(), pw_hash, salt)
-    return ORJSONResponse({"ok": True})
+    return JSONResponse({"ok": True})
 
 
 class DisableAuthBody(BaseModel):
     current_password: str
 
 
-@api.post(f"{ROOT}/settings/auth/disable", response_class=ORJSONResponse,
+@api.post(f"{ROOT}/settings/auth/disable", response_class=JSONResponse,
           dependencies=[Depends(require_auth)])
 async def disable_auth_route(body: DisableAuthBody):
     config = ConfigManager().load_config()
     if not config.ADMIN_USERNAME:
-        return ORJSONResponse({"ok": True})
+        return JSONResponse({"ok": True})
     pw_hash = hashlib.pbkdf2_hmac(
         "sha256", body.current_password.encode(), config.ADMIN_SALT.encode(), 200_000
     ).hex()
     if pw_hash != config.ADMIN_PASSWORD_HASH:
-        return ORJSONResponse({"ok": False, "message": "Password is incorrect"}, status_code=401)
+        return JSONResponse({"ok": False, "message": "Password is incorrect"}, status_code=401)
     ConfigManager().save_auth("", "", "")
-    return ORJSONResponse({"ok": True})
+    return JSONResponse({"ok": True})
 
 
 # ── Version / update check ────────────────────────────────────────────────────
@@ -582,7 +582,7 @@ _version_cache: dict = {"tag": None, "url": None, "fetched_at": 0.0}
 _VERSION_TTL = 3600  # re-check GitHub at most once per hour
 
 
-@api.get(f"{ROOT}/version", response_class=ORJSONResponse,
+@api.get(f"{ROOT}/version", response_class=JSONResponse,
          dependencies=[Depends(require_auth)])
 async def version_route():
     now = time.monotonic()
@@ -604,7 +604,7 @@ async def version_route():
 
     latest  = _version_cache["tag"]
     current = constant.VERSION
-    return ORJSONResponse({
+    return JSONResponse({
         "current_version":  current,
         "latest_version":   latest,
         "update_available": bool(latest and latest != current),
