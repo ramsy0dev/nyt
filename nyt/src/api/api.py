@@ -45,7 +45,8 @@ async def _lifespan(app: FastAPI):
         def _startup_update():
             try:
                 result = subprocess.run(
-                    [sys.executable, "-m", "pip", "install", "--upgrade", constant.PACKAGE],
+                    [sys.executable, "-m", "pip", "install", "--upgrade",
+                    f"git+https://github.com/{constant.AUTHOR}/{constant.PACKAGE}.git"],
                     capture_output=True, text=True, timeout=300,
                 )
                 if result.returncode == 0:
@@ -656,7 +657,8 @@ async def trigger_update_route():
         _update_state["running"] = True
         try:
             result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--upgrade", constant.PACKAGE],
+                [sys.executable, "-m", "pip", "install", "--upgrade",
+                    f"git+https://github.com/{constant.AUTHOR}/{constant.PACKAGE}.git"],
                 capture_output=True, text=True, timeout=300,
             )
             if result.returncode == 0:
