@@ -373,6 +373,11 @@ class DatabaseHandler:
             conn.execute(f"UPDATE videos SET {set_clause} WHERE video_id = ?", params)
             conn.commit()
 
+    def delete_video_row(self, video_id: str) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM videos WHERE video_id = ?", (video_id,))
+            conn.commit()
+
     # ── Watched videos ────────────────────────────────────────────────────────
 
     def get_watched_videos_row(

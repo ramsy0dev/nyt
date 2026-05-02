@@ -1,10 +1,13 @@
 import asyncio
 import hashlib
 import json
+import os
 import pathlib
 import secrets
+import threading
 import time
 import requests as _requests
+from loguru import logger
 
 from fastapi import FastAPI, Header, Request, Depends
 from fastapi.responses import (
@@ -313,6 +316,98 @@ async def mark_video_watched_route(video_id: str):
         video_id=video_id,
         values={"is_watched": True, "timestamp": date_in_gmt()},
     )
+    return ORJSONResponse({"status_code": 200})
+
+
+@api.post(f"{ROOT}/videos/{{video_id}}/unwatched", status_code=200, response_class=ORJSONResponse,
+          dependencies=[Depends(require_auth)])
+async def mark_video_unwatched_route(video_id: str):
+    classes.database_handler.update_videos_values(
+        video_id=video_id,
+        values={"is_watched": False, "timestamp": date_in_gmt()},
+    )
+    return ORJSONResponse({"status_code": 200})
+
+
+@api.post(f"{ROOT}/videos/{{video_id}}/download", status_code=202, response_class=ORJSONResponse,
+          dependencies=[Depends(require_auth)])
+async def download_video_route(video_id: str):
+    video = classes.database_handler.get_video_from_videos(video_id=video_id)
+    if not video:
+        return ORJSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
+    if video.is_downloaded:
+        return ORJSONResponse({"status_code": 409, "message": "Already downloaded"}, status_code=409)
+
+    config = ConfigManager().load_config()
+
+    def _do_download():
+        try:
+            output_path, publish_date, title, thumbnail_url, size, height, subtitles, chapters = \
+                classes.nyt.download_video(
+                    video_id=video_id,
+                    prefix_directory=config.VIDEOS_PREFIX_DIRECTORY,
+                )
+            classes.database_handler.update_videos_values(video_id=video_id, values={
+                "download_path": output_path,
+                "is_downloaded": True,
+                "publish_date":  publish_date,
+                "title":         title,
+                "thumbnail_url": thumbnail_url,
+                "size":          size,
+                "subtitles":     subtitles,
+                "chapters":      chapters,
+                "variants":      [],
+            })
+            if ConfigManager().load_config().TRANSCODING_ENABLED and height and height > 360:
+                classes.nyt._transcode_video(video_id, output_path, height)
+        except Exception as exc:
+            from nyt.src.api.download_state import update_progress
+            update_progress(video_id, {"title": video.title or video_id, "status": "error"})
+            logger.warning(f"Manual download failed for '{video_id}': {exc}")
+
+    threading.Thread(target=_do_download, daemon=True).start()
+    return ORJSONResponse({"status_code": 202, "message": "Download started"})
+
+
+def _delete_video_files(video) -> None:
+    for path in [video.download_path] + \
+                [v.get("path", "") for v in (video.variants or [])] + \
+                [s.get("path", "") for s in (video.subtitles or [])]:
+        if path:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+
+@api.delete(f"{ROOT}/videos/{{video_id}}/file", status_code=200, response_class=ORJSONResponse,
+            dependencies=[Depends(require_auth)])
+async def delete_video_file_route(video_id: str):
+    video = classes.database_handler.get_video_from_videos(video_id=video_id)
+    if not video:
+        return ORJSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
+    if not video.is_downloaded:
+        return ORJSONResponse({"status_code": 409, "message": "Not downloaded"}, status_code=409)
+    _delete_video_files(video)
+    classes.database_handler.update_videos_values(video_id=video_id, values={
+        "is_downloaded": False,
+        "download_path": "",
+        "size":          0,
+        "variants":      [],
+        "subtitles":     [],
+    })
+    return ORJSONResponse({"status_code": 200})
+
+
+@api.delete(f"{ROOT}/videos/{{video_id}}", status_code=200, response_class=ORJSONResponse,
+            dependencies=[Depends(require_auth)])
+async def delete_video_route(video_id: str):
+    video = classes.database_handler.get_video_from_videos(video_id=video_id)
+    if not video:
+        return ORJSONResponse({"status_code": 404, "message": "Not found"}, status_code=404)
+    if video.is_downloaded:
+        _delete_video_files(video)
+    classes.database_handler.delete_video_row(video_id=video_id)
     return ORJSONResponse({"status_code": 200})
 
 

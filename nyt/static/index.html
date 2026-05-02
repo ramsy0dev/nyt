@@ -373,6 +373,81 @@
 
     .dl-meta { font-size: 11px; color: var(--muted); font-weight: 600; }
 
+    /* ── CONTEXT MENU ──────────────────────────────────── */
+    #ctx-menu {
+      position: fixed;
+      z-index: 500;
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: 12px 6px 14px 8px / 8px 14px 6px 12px;
+      box-shadow: 5px 5px 0 var(--shadow);
+      min-width: 190px;
+      overflow: hidden;
+      display: none;
+      transform-origin: top left;
+      animation: ctx-pop 0.12s ease;
+    }
+
+    @keyframes ctx-pop {
+      from { opacity: 0; transform: scale(0.93); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .ctx-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 14px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s;
+      user-select: none;
+    }
+
+    .ctx-item:hover {
+      background: var(--coral-bg);
+      color: var(--coral);
+    }
+
+    .ctx-item.danger { color: #c94040; }
+    .ctx-item.danger:hover { background: #fdeaea; color: #c94040; }
+
+    .ctx-item svg { flex-shrink: 0; opacity: 0.75; }
+    .ctx-item:hover svg { opacity: 1; }
+
+    .ctx-sep {
+      height: 1.5px;
+      background: var(--shadow);
+      margin: 3px 0;
+    }
+
+    /* ── TOAST ─────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: var(--ink);
+      color: var(--surface);
+      font-family: var(--font-hand);
+      font-size: 17px;
+      padding: 8px 22px;
+      border-radius: var(--radius-pill);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 600;
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
     /* ── STATES ────────────────────────────────────────── */
     .state {
       display: flex;
@@ -419,6 +494,9 @@
     <button id="btn-logout" style="display:none" onclick="doLogout()">Sign out</button>
   </div>
 </nav>
+
+<div id="ctx-menu" role="menu" aria-label="Video options"></div>
+<div id="toast"></div>
 
 <div id="dl-panel" style="display:none">
   <div id="dl-header">
@@ -480,6 +558,7 @@
   function card(v) {
     return `
       <a href="/watch/${esc(v.video_id)}" class="card${v.is_watched ? ' watched' : ''}"
+         data-video-id="${esc(v.video_id)}"
          onclick="markWatched(event,'${esc(v.video_id)}')">
         <div class="card-thumb-wrap">
           <img class="card-thumb" src="${esc(v.thumbnail_url)}" alt="${esc(v.video_title)}" loading="lazy">
@@ -690,6 +769,155 @@
   }
 
   init();
+
+  /* ── Context menu ──────────────────────────────────────── */
+  const ctxMenu = document.getElementById('ctx-menu');
+  let _ctxVideo = null;
+  let _toastTimer = null;
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function hideCtxMenu() {
+    ctxMenu.style.display = 'none';
+    _ctxVideo = null;
+  }
+
+  function showCtxMenu(e, video) {
+    e.preventDefault();
+    _ctxVideo = video;
+
+    const dl = !video.is_downloaded;
+    const dn = video.is_downloaded;
+    const sep = '<div class="ctx-sep"></div>';
+
+    ctxMenu.innerHTML = `
+      <div class="ctx-item" data-action="new-tab">
+        <i data-lucide="external-link" style="width:15px;height:15px"></i>Open in new tab
+      </div>
+      ${sep}
+      <div class="ctx-item" data-action="${video.is_watched ? 'unwatch' : 'watch'}">
+        <i data-lucide="${video.is_watched ? 'eye-off' : 'eye'}" style="width:15px;height:15px"></i>
+        ${video.is_watched ? 'Mark as unwatched' : 'Mark as watched'}
+      </div>
+      ${dl ? `${sep}<div class="ctx-item" data-action="download">
+        <i data-lucide="download" style="width:15px;height:15px"></i>Download
+      </div>` : ''}
+      ${dn ? `${sep}<div class="ctx-item" data-action="delete-file">
+        <i data-lucide="hard-drive" style="width:15px;height:15px"></i>Delete local file
+      </div>` : ''}
+      ${sep}
+      <div class="ctx-item" data-action="copy-url">
+        <i data-lucide="link" style="width:15px;height:15px"></i>Copy YouTube URL
+      </div>
+      ${sep}
+      <div class="ctx-item danger" data-action="remove">
+        <i data-lucide="trash-2" style="width:15px;height:15px"></i>Remove from library
+      </div>`;
+
+    ctxMenu.style.display = '';
+    lucide.createIcons();
+
+    const mw = ctxMenu.offsetWidth;
+    const mh = ctxMenu.offsetHeight;
+    let x = e.clientX + 2;
+    let y = e.clientY + 2;
+    if (x + mw > window.innerWidth  - 8) x = e.clientX - mw - 2;
+    if (y + mh > window.innerHeight - 8) y = e.clientY - mh - 2;
+    ctxMenu.style.left = x + 'px';
+    ctxMenu.style.top  = y + 'px';
+  }
+
+  ctxMenu.addEventListener('click', e => {
+    e.stopPropagation();
+    const item = e.target.closest('[data-action]');
+    if (!item || !_ctxVideo) return;
+    const action = item.dataset.action;
+    const video  = _ctxVideo;
+    hideCtxMenu();
+    handleCtxAction(action, video);
+  });
+
+  async function handleCtxAction(action, video) {
+    const vid = video.video_id;
+    switch (action) {
+      case 'new-tab':
+        window.open(`/watch/${vid}`, '_blank');
+        break;
+
+      case 'watch': {
+        const cardEl = document.querySelector(`.card[data-video-id="${CSS.escape(vid)}"]`);
+        if (cardEl) cardEl.classList.add('watched');
+        video.is_watched = true;
+        await apiFetch(`/api/v1/videos/${encodeURIComponent(vid)}/watched`, { method: 'POST' });
+        break;
+      }
+
+      case 'unwatch': {
+        const cardEl = document.querySelector(`.card[data-video-id="${CSS.escape(vid)}"]`);
+        if (cardEl) cardEl.classList.remove('watched');
+        video.is_watched = false;
+        await apiFetch(`/api/v1/videos/${encodeURIComponent(vid)}/unwatched`, { method: 'POST' });
+        break;
+      }
+
+      case 'download':
+        await apiFetch(`/api/v1/videos/${encodeURIComponent(vid)}/download`, { method: 'POST' });
+        showToast('Download started');
+        break;
+
+      case 'delete-file': {
+        if (!confirm('Delete the local file? The video stays in the library as a stream.')) break;
+        const res = await apiFetch(`/api/v1/videos/${encodeURIComponent(vid)}/file`, { method: 'DELETE' });
+        if (res && res.ok) {
+          video.is_downloaded = false;
+          renderVideos();
+          showToast('File deleted');
+        }
+        break;
+      }
+
+      case 'copy-url':
+        navigator.clipboard.writeText(`https://www.youtube.com/watch?v=${vid}`);
+        showToast('URL copied');
+        break;
+
+      case 'remove': {
+        const msg = video.is_downloaded
+          ? 'Remove from library and delete the local file?'
+          : 'Remove this video from the library?';
+        if (!confirm(msg)) break;
+        const res = await apiFetch(`/api/v1/videos/${encodeURIComponent(vid)}`, { method: 'DELETE' });
+        if (res && res.ok) {
+          allVideos = allVideos.filter(v => v.video_id !== vid);
+          renderVideos();
+        }
+        break;
+      }
+    }
+  }
+
+  // Right-click on video cards
+  document.addEventListener('contextmenu', e => {
+    const cardEl = e.target.closest('.card[data-video-id]');
+    if (!cardEl) { hideCtxMenu(); return; }
+    const vid   = cardEl.dataset.videoId;
+    const video = allVideos.find(v => v.video_id === vid);
+    if (video) showCtxMenu(e, video);
+  });
+
+  // Dismiss on outside click or Escape
+  document.addEventListener('click', e => {
+    if (!ctxMenu.contains(e.target)) hideCtxMenu();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') hideCtxMenu();
+  });
 </script>
 
 </body>
