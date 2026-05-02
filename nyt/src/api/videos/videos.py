@@ -246,12 +246,12 @@ class VideosHandler:
                 "channel_handle":            video.channel_handle,
                 "channel_name":              channel_info.channel_name if channel_info else "",
                 "channel_avatar_url_default": channel_info.channel_avatar_url_default if channel_info else "",
-                "publish_date":              video.publish_date,
+                "publish_date":              video.publish_date.isoformat() if video.publish_date else None,
                 "thumbnail_url":             video.thumbnail_url,
                 "watch_url":                 f"/videos/{video.video_id}",
                 "is_watched":                video.is_watched,
                 "is_downloaded":             video.is_downloaded,
-                "timestamp":                 video.timestamp,
+                "timestamp":                 video.timestamp.isoformat() if video.timestamp else None,
             })
         return res
 

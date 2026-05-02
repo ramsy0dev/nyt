@@ -118,10 +118,11 @@ class DatabaseHandler:
                 for version, sql in pending:
                     try:
                         conn.execute(sql)
-                        conn.execute(f"PRAGMA user_version = {version}")
                         logger.debug(f"Migration v{version} applied")
                     except Exception as exc:
-                        logger.warning(f"Migration v{version} skipped: {exc}")
+                        logger.debug(f"Migration v{version} already present: {exc}")
+                if pending:
+                    conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
 
             conn.commit()
 
