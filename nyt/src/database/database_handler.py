@@ -55,20 +55,19 @@ CREATE TABLE IF NOT EXISTS watched_videos (
 );
 """
 
-# Columns added after initial schema — ALTER TABLE is idempotent via the migration check.
-_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
-    "channels": [
-        ("channel_name",        "TEXT"),
-        ("watch_delay_minutes", "INTEGER"),
-        ("last_checked_at",     "TEXT"),
-        ("auto_download",       "INTEGER DEFAULT 1"),
-    ],
-    "videos": [
-        ("variants",  "TEXT NOT NULL DEFAULT '[]'"),
-        ("subtitles", "TEXT NOT NULL DEFAULT '[]'"),
-        ("chapters",  "TEXT NOT NULL DEFAULT '[]'"),
-    ],
-}
+# Versioned migrations tracked via PRAGMA user_version.
+# New migrations must be appended with a strictly increasing version number.
+_MIGRATIONS: list[tuple[int, str]] = [
+    (1, "ALTER TABLE channels ADD COLUMN channel_name TEXT"),
+    (2, "ALTER TABLE channels ADD COLUMN watch_delay_minutes INTEGER"),
+    (3, "ALTER TABLE channels ADD COLUMN last_checked_at TEXT"),
+    (4, "ALTER TABLE channels ADD COLUMN auto_download INTEGER DEFAULT 1"),
+    (5, "ALTER TABLE videos ADD COLUMN variants TEXT NOT NULL DEFAULT '[]'"),
+    (6, "ALTER TABLE videos ADD COLUMN subtitles TEXT NOT NULL DEFAULT '[]'"),
+    (7, "ALTER TABLE videos ADD COLUMN chapters TEXT NOT NULL DEFAULT '[]'"),
+]
+
+_SCHEMA_VERSION = _MIGRATIONS[-1][0] if _MIGRATIONS else 0
 
 
 def _dt(value) -> str | None:
@@ -102,12 +101,24 @@ class DatabaseHandler:
 
     def _init_db(self) -> None:
         with self._connect() as conn:
+            is_fresh = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='videos'"
+            ).fetchone() is None
+
             conn.executescript(_SCHEMA)
-            for table, cols in _MIGRATIONS.items():
-                existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
-                for col_name, col_def in cols:
-                    if col_name not in existing:
-                        conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
+
+            if is_fresh:
+                conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+            else:
+                current_version = conn.execute("PRAGMA user_version").fetchone()[0]
+                for version, sql in _MIGRATIONS:
+                    if version > current_version:
+                        try:
+                            conn.execute(sql)
+                            conn.execute(f"PRAGMA user_version = {version}")
+                        except Exception as exc:
+                            logger.warning(f"Migration v{version} skipped: {exc}")
+
             conn.commit()
 
     # ── Row converters ────────────────────────────────────────────────────────

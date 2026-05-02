@@ -4,6 +4,8 @@ import json
 import os
 import pathlib
 import secrets
+import subprocess
+import sys
 import threading
 import time
 import requests as _requests
@@ -33,7 +35,31 @@ ROOT = api_constant.ROOT_API_ROUTE
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-api = FastAPI()
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    config = ConfigManager().load_config()
+    if config.AUTO_UPDATE_ENABLED:
+        def _startup_update():
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "--upgrade", constant.PACKAGE],
+                    capture_output=True, text=True, timeout=300,
+                )
+                if result.returncode == 0:
+                    logger.info("Startup auto-update: already up-to-date or updated successfully")
+                else:
+                    logger.warning(f"Startup auto-update failed:\n{result.stderr}")
+            except Exception as exc:
+                logger.warning(f"Startup auto-update exception: {exc}")
+
+        threading.Thread(target=_startup_update, daemon=True).start()
+    yield
+
+
+api = FastAPI(lifespan=_lifespan)
 
 api.add_middleware(
     CORSMiddleware,
@@ -501,6 +527,7 @@ async def get_settings_route():
             "quality_selection_enabled": config.QUALITY_SELECTION_ENABLED,
             "transcoding_enabled":       config.TRANSCODING_ENABLED,
             "auto_delete_watched_days":  config.AUTO_DELETE_WATCHED_DAYS,
+            "auto_update_enabled":       config.AUTO_UPDATE_ENABLED,
         },
     })
 
@@ -512,6 +539,7 @@ class GeneralSettingsBody(BaseModel):
     quality_selection_enabled: bool | None = None
     transcoding_enabled: bool | None = None
     auto_delete_watched_days: int | None = None
+    auto_update_enabled: bool | None = None
 
 
 @api.put(f"{ROOT}/settings/general", response_class=JSONResponse,
@@ -526,6 +554,7 @@ async def update_general_settings_route(body: GeneralSettingsBody):
         quality_selection_enabled=body.quality_selection_enabled,
         transcoding_enabled=body.transcoding_enabled,
         auto_delete_watched_days=body.auto_delete_watched_days,
+        auto_update_enabled=body.auto_update_enabled,
     )
     return JSONResponse({"ok": True})
 
@@ -604,9 +633,43 @@ async def version_route():
 
     latest  = _version_cache["tag"]
     current = constant.VERSION
+    config  = ConfigManager().load_config()
     return JSONResponse({
-        "current_version":  current,
-        "latest_version":   latest,
-        "update_available": bool(latest and latest != current),
-        "release_url":      _version_cache["url"],
+        "current_version":    current,
+        "latest_version":     latest,
+        "update_available":   bool(latest and latest != current),
+        "release_url":        _version_cache["url"],
+        "auto_update_enabled": config.AUTO_UPDATE_ENABLED,
     })
+
+
+_update_state: dict = {"running": False, "last_result": None}
+
+
+@api.post(f"{ROOT}/update", response_class=JSONResponse,
+          dependencies=[Depends(require_auth)])
+async def trigger_update_route():
+    if _update_state["running"]:
+        return JSONResponse({"ok": False, "message": "Update already in progress"}, status_code=409)
+
+    def _do_update():
+        _update_state["running"] = True
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", constant.PACKAGE],
+                capture_output=True, text=True, timeout=300,
+            )
+            if result.returncode == 0:
+                _update_state["last_result"] = "success"
+                logger.info("Auto-update completed successfully")
+            else:
+                _update_state["last_result"] = "error"
+                logger.warning(f"Auto-update failed:\n{result.stderr}")
+        except Exception as exc:
+            _update_state["last_result"] = "error"
+            logger.warning(f"Auto-update exception: {exc}")
+        finally:
+            _update_state["running"] = False
+
+    threading.Thread(target=_do_update, daemon=True).start()
+    return JSONResponse({"ok": True, "message": "Update started — restart nyt once it completes"})

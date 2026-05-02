@@ -40,6 +40,9 @@ class ConfigManager:
         cleanup = nyt.get("cleanup", {})
         cfg.AUTO_DELETE_WATCHED_DAYS = int(cleanup.get("auto_delete_watched_days", cfg.AUTO_DELETE_WATCHED_DAYS))
 
+        updates = nyt.get("updates", {})
+        cfg.AUTO_UPDATE_ENABLED = bool(updates.get("auto_update_enabled", cfg.AUTO_UPDATE_ENABLED))
+
         return cfg
 
     def save_auth(self, username: str, password_hash: str, salt: str) -> None:
@@ -57,6 +60,7 @@ class ConfigManager:
         quality_selection_enabled: bool | None = None,
         transcoding_enabled: bool | None = None,
         auto_delete_watched_days: int | None = None,
+        auto_update_enabled: bool | None = None,
     ) -> None:
         cfg = self.load_config()
         if watch_delay_minutes is not None:
@@ -71,6 +75,8 @@ class ConfigManager:
             cfg.TRANSCODING_ENABLED = transcoding_enabled
         if auto_delete_watched_days is not None:
             cfg.AUTO_DELETE_WATCHED_DAYS = auto_delete_watched_days
+        if auto_update_enabled is not None:
+            cfg.AUTO_UPDATE_ENABLED = auto_update_enabled
         Path(cfg.CONFIG_FILE_PATH).write_text(self._to_toml(cfg))
 
     @staticmethod
@@ -107,4 +113,7 @@ class ConfigManager:
             f'\n'
             f'[nyt.cleanup]\n'
             f'auto_delete_watched_days = {c.AUTO_DELETE_WATCHED_DAYS}\n'
+            f'\n'
+            f'[nyt.updates]\n'
+            f'auto_update_enabled = {"true" if c.AUTO_UPDATE_ENABLED else "false"}\n'
         )

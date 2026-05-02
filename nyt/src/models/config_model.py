@@ -35,3 +35,6 @@ class Config:
 
     # Cleanup
     AUTO_DELETE_WATCHED_DAYS: int = 0  # 0 = disabled
+
+    # Updates
+    AUTO_UPDATE_ENABLED: bool = True
