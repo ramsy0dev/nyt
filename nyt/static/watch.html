@@ -122,7 +122,11 @@
       width: 100%;
       aspect-ratio: 16 / 9;
       position: relative;
+      cursor: none;
     }
+
+    .player-frame.ctrl-show,
+    .player-frame.ctrl-pause { cursor: default; }
 
     video {
       width: 100%;
@@ -145,7 +149,7 @@
     /* ── RESUME BANNER ─────────────────────────────────── */
     #resume-banner {
       position: absolute;
-      bottom: 56px;
+      bottom: 70px;
       left: 50%;
       transform: translateX(-50%) translateY(8px);
       background: rgba(45,43,38,0.88);
@@ -162,6 +166,188 @@
     }
 
     #resume-banner.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── PLAYER CONTROLS ───────────────────────────────── */
+    .player-controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(30,26,20,0.92) 80%);
+      padding: 44px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      opacity: 0;
+      transform: translateY(5px);
+      transition: opacity 0.22s, transform 0.22s;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .player-frame.ctrl-show .player-controls,
+    .player-frame.ctrl-pause .player-controls {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: all;
+    }
+
+    /* Seek bar */
+    .ctrl-seek-wrap { position: relative; }
+
+    .ctrl-range {
+      -webkit-appearance: none;
+      appearance: none;
+      display: block;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: linear-gradient(
+        to right,
+        var(--coral) var(--pct, 0%),
+        rgba(255,255,255,0.28) var(--pct, 0%)
+      );
+      cursor: pointer;
+      outline: none;
+      border: none;
+    }
+
+    .ctrl-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--coral);
+      border: 2.5px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+      transition: transform 0.12s;
+    }
+
+    .ctrl-range:hover::-webkit-slider-thumb { transform: scale(1.3); }
+
+    .ctrl-range::-moz-range-track {
+      height: 4px;
+      background: rgba(255,255,255,0.28);
+      border-radius: 2px;
+    }
+
+    .ctrl-range::-moz-range-progress {
+      height: 4px;
+      background: var(--coral);
+      border-radius: 2px;
+    }
+
+    .ctrl-range::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      background: var(--coral);
+      border: 2.5px solid #fff;
+      border-radius: 50%;
+    }
+
+    /* Volume range */
+    .vol-range {
+      width: 72px;
+      height: 3px;
+      background: linear-gradient(
+        to right,
+        rgba(255,255,255,0.88) var(--pct, 100%),
+        rgba(255,255,255,0.28) var(--pct, 100%)
+      );
+    }
+
+    .vol-range::-webkit-slider-thumb {
+      width: 11px;
+      height: 11px;
+      background: #fff;
+      border: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+
+    .vol-range:hover::-webkit-slider-thumb { transform: scale(1.25); }
+
+    .vol-range::-moz-range-progress { background: rgba(255,255,255,0.88); }
+
+    .vol-range::-moz-range-thumb {
+      width: 11px;
+      height: 11px;
+      background: #fff;
+      border: none;
+    }
+
+    /* Controls row */
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Control buttons */
+    .ctrl-btn {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.82);
+      cursor: pointer;
+      padding: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+
+    .ctrl-btn:hover {
+      color: #fff;
+      background: rgba(255,255,255,0.12);
+    }
+
+    /* Volume area */
+    .ctrl-vol-wrap {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    /* Time display */
+    .ctrl-time {
+      font-family: var(--font-hand);
+      font-size: 16px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.82);
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+      margin: 0 5px;
+      user-select: none;
+    }
+
+    /* CC button */
+    .ctrl-cc-btn {
+      background: none;
+      border: 1.5px solid rgba(255,255,255,0.42);
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 3px 7px;
+      border-radius: 4px;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+
+    .ctrl-cc-btn:hover {
+      color: #fff;
+      border-color: rgba(255,255,255,0.75);
+    }
+
+    .ctrl-cc-btn.cc-on {
+      color: var(--coral);
+      border-color: var(--coral);
+      background: rgba(244,132,95,0.18);
+    }
 
     /* ── BELOW PLAYER ──────────────────────────────────── */
     .player-meta {
@@ -420,7 +606,7 @@
   }
 
   function fmtTime(secs) {
-    secs = Math.floor(secs);
+    secs = Math.floor(secs || 0);
     const h = Math.floor(secs / 3600);
     const m = Math.floor((secs % 3600) / 60);
     const s = secs % 60;
@@ -429,7 +615,6 @@
       : `${m}:${String(s).padStart(2,'0')}`;
   }
 
-  // Language code → display name map
   const LANG_NAMES = {
     en:'English', 'en-US':'English (US)', 'en-GB':'English (UK)',
     es:'Spanish', fr:'French', de:'German', it:'Italian',
@@ -581,7 +766,6 @@
     const dur = chapters[chapters.length - 1].end_time;
     if (!dur || dur <= 0) return;
 
-    // Build segments
     track.innerHTML = chapters.map((ch, i) => {
       const left  = ((ch.start_time / dur) * 100).toFixed(4);
       const width = (((ch.end_time - ch.start_time) / dur) * 100).toFixed(4);
@@ -591,7 +775,6 @@
 
     wrap.style.display = '';
 
-    // Click to seek
     track.querySelectorAll('.ch-seg').forEach(seg => {
       seg.addEventListener('click', () => {
         videoEl.currentTime = parseFloat(seg.dataset.start);
@@ -599,7 +782,6 @@
       });
     });
 
-    // Sync active chapter on timeupdate
     videoEl.addEventListener('timeupdate', () => {
       const t    = videoEl.currentTime;
       let active = null;
@@ -632,17 +814,227 @@
       if (i === 0) track.default = true;
       videoEl.appendChild(track);
     });
+
+    const ccBtn = document.getElementById('ctrl-cc');
+    if (ccBtn) {
+      ccBtn.style.display = '';
+      ccBtn.classList.add('cc-on');
+    }
+  }
+
+  // ── Custom player controls ────────────────────────────
+  function attachCustomControls(videoEl) {
+    const frame   = document.getElementById('player-frame');
+    const seekEl  = document.getElementById('ctrl-seek');
+    const playBtn = document.getElementById('ctrl-play');
+    const muteBtn = document.getElementById('ctrl-mute');
+    const volEl   = document.getElementById('ctrl-vol');
+    const timeEl  = document.getElementById('ctrl-time');
+    const fsBtn   = document.getElementById('ctrl-fs');
+    const ccBtn   = document.getElementById('ctrl-cc');
+    if (!frame || !seekEl || !playBtn) return;
+
+    let isSeeking  = false;
+    let wasPlaying = false;
+    let hideTimer  = null;
+    let ccOn       = true;
+
+    // ── Show / hide controls ──────────────────────────
+    function showCtrls() {
+      frame.classList.add('ctrl-show');
+      clearTimeout(hideTimer);
+      if (!videoEl.paused) {
+        hideTimer = setTimeout(() => frame.classList.remove('ctrl-show'), 3000);
+      }
+    }
+
+    frame.addEventListener('mousemove', showCtrls);
+    frame.addEventListener('mouseenter', showCtrls);
+    frame.addEventListener('mouseleave', () => {
+      if (!videoEl.paused) {
+        clearTimeout(hideTimer);
+        frame.classList.remove('ctrl-show');
+      }
+    });
+
+    // ── Play / pause ──────────────────────────────────
+    function togglePlay() {
+      if (videoEl.paused || videoEl.ended) videoEl.play();
+      else videoEl.pause();
+    }
+
+    videoEl.addEventListener('click', togglePlay);
+    playBtn.addEventListener('click', e => { e.stopPropagation(); togglePlay(); });
+
+    function syncPlayState() {
+      const paused = videoEl.paused || videoEl.ended;
+      frame.classList.toggle('ctrl-pause', paused);
+      if (paused) clearTimeout(hideTimer);
+      playBtn.querySelector('.icon-play').style.display  = paused ? '' : 'none';
+      playBtn.querySelector('.icon-pause').style.display = paused ? 'none' : '';
+    }
+
+    videoEl.addEventListener('play',  syncPlayState);
+    videoEl.addEventListener('pause', syncPlayState);
+    videoEl.addEventListener('ended', syncPlayState);
+    syncPlayState();
+
+    // ── Seek ──────────────────────────────────────────
+    function updateSeekUI() {
+      if (isSeeking || !videoEl.duration) return;
+      const pct = (videoEl.currentTime / videoEl.duration) * 100;
+      seekEl.value = videoEl.currentTime / videoEl.duration;
+      seekEl.style.setProperty('--pct', pct.toFixed(3) + '%');
+    }
+
+    function updateTime(overrideTime) {
+      const c = overrideTime ?? videoEl.currentTime;
+      const d = videoEl.duration;
+      timeEl.textContent = isNaN(d)
+        ? `${fmtTime(c)} / --:--`
+        : `${fmtTime(c)} / ${fmtTime(d)}`;
+    }
+
+    seekEl.addEventListener('mousedown', () => {
+      isSeeking  = true;
+      wasPlaying = !videoEl.paused;
+      if (wasPlaying) videoEl.pause();
+    });
+
+    seekEl.addEventListener('input', () => {
+      const pct = parseFloat(seekEl.value) * 100;
+      seekEl.style.setProperty('--pct', pct.toFixed(3) + '%');
+      updateTime(parseFloat(seekEl.value) * (videoEl.duration || 0));
+    });
+
+    seekEl.addEventListener('change', () => {
+      videoEl.currentTime = parseFloat(seekEl.value) * (videoEl.duration || 0);
+      isSeeking = false;
+      if (wasPlaying) videoEl.play();
+    });
+
+    videoEl.addEventListener('timeupdate', () => { updateSeekUI(); updateTime(); });
+    videoEl.addEventListener('loadedmetadata', () => { updateSeekUI(); updateTime(); });
+
+    // ── Volume ────────────────────────────────────────
+    function updateVolUI() {
+      const v = videoEl.muted ? 0 : videoEl.volume;
+      volEl.value = v;
+      volEl.style.setProperty('--pct', (v * 100).toFixed(1) + '%');
+      const isOff = videoEl.muted || videoEl.volume === 0;
+      muteBtn.querySelector('.icon-vol-on').style.display  = isOff ? 'none' : '';
+      muteBtn.querySelector('.icon-vol-off').style.display = isOff ? '' : 'none';
+    }
+
+    muteBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      videoEl.muted = !videoEl.muted;
+    });
+
+    volEl.addEventListener('input', e => {
+      e.stopPropagation();
+      videoEl.volume = parseFloat(volEl.value);
+      videoEl.muted  = false;
+      volEl.style.setProperty('--pct', (parseFloat(volEl.value) * 100).toFixed(1) + '%');
+    });
+
+    videoEl.addEventListener('volumechange', updateVolUI);
+    updateVolUI();
+
+    // ── CC ────────────────────────────────────────────
+    if (ccBtn) {
+      ccBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        ccOn = !ccOn;
+        const tracks = videoEl.textTracks;
+        for (let i = 0; i < tracks.length; i++) {
+          tracks[i].mode = ccOn ? 'showing' : 'hidden';
+        }
+        ccBtn.classList.toggle('cc-on', ccOn);
+      });
+    }
+
+    // ── Fullscreen ────────────────────────────────────
+    fsBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        (frame.requestFullscreen || frame.webkitRequestFullscreen).call(frame);
+      }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      const full = !!document.fullscreenElement;
+      fsBtn.querySelector('.icon-maximize').style.display = full ? 'none' : '';
+      fsBtn.querySelector('.icon-minimize').style.display = full ? '' : 'none';
+    });
+
+    // ── Keyboard shortcuts ────────────────────────────
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      switch (e.code) {
+        case 'Space': case 'KeyK':
+          e.preventDefault(); togglePlay(); showCtrls(); break;
+        case 'KeyM':
+          e.preventDefault(); videoEl.muted = !videoEl.muted; break;
+        case 'KeyF':
+          e.preventDefault(); fsBtn.click(); break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          videoEl.currentTime = Math.max(0, videoEl.currentTime - 5);
+          showCtrls(); break;
+        case 'ArrowRight':
+          e.preventDefault();
+          videoEl.currentTime = Math.min(videoEl.duration || 0, videoEl.currentTime + 5);
+          showCtrls(); break;
+        case 'ArrowUp':
+          e.preventDefault();
+          videoEl.volume = Math.min(1, videoEl.volume + 0.1);
+          videoEl.muted = false; break;
+        case 'ArrowDown':
+          e.preventDefault();
+          videoEl.volume = Math.max(0, videoEl.volume - 0.1); break;
+      }
+    });
   }
 
   // ── Player ────────────────────────────────────────────
   function showPlayer(videoId, title, qualityEnabled) {
     const src = buildSrc(videoId, null);
     root.innerHTML = `
-      <div class="player-frame">
-        <video controls autoplay preload="metadata">
+      <div class="player-frame ctrl-pause" id="player-frame">
+        <video autoplay preload="metadata">
           <source src="${esc(src)}" type="video/mp4">
         </video>
         <div id="resume-banner"></div>
+        <div class="player-controls" id="player-controls">
+          <div class="ctrl-seek-wrap">
+            <input type="range" class="ctrl-range" id="ctrl-seek"
+                   min="0" max="1" step="0.001" value="0" aria-label="Seek">
+          </div>
+          <div class="ctrl-row">
+            <button class="ctrl-btn" id="ctrl-play" aria-label="Play">
+              <i data-lucide="play"  class="icon-play"  style="width:22px;height:22px"></i>
+              <i data-lucide="pause" class="icon-pause" style="display:none;width:22px;height:22px"></i>
+            </button>
+            <div class="ctrl-vol-wrap">
+              <button class="ctrl-btn" id="ctrl-mute" aria-label="Mute">
+                <i data-lucide="volume-2" class="icon-vol-on"  style="width:20px;height:20px"></i>
+                <i data-lucide="volume-x" class="icon-vol-off" style="display:none;width:20px;height:20px"></i>
+              </button>
+              <input type="range" class="ctrl-range vol-range" id="ctrl-vol"
+                     min="0" max="1" step="0.05" value="1" aria-label="Volume">
+            </div>
+            <span class="ctrl-time" id="ctrl-time">0:00 / --:--</span>
+            <div style="flex:1"></div>
+            <button class="ctrl-cc-btn" id="ctrl-cc" style="display:none" aria-label="Toggle subtitles">CC</button>
+            <button class="ctrl-btn" id="ctrl-fs" aria-label="Fullscreen">
+              <i data-lucide="maximize" class="icon-maximize" style="width:20px;height:20px"></i>
+              <i data-lucide="minimize" class="icon-minimize" style="display:none;width:20px;height:20px"></i>
+            </button>
+          </div>
+        </div>
       </div>
       <div id="chapter-wrap">
         <div id="chapter-bar-track"></div>
@@ -696,7 +1088,6 @@
         qualityEnabled = !!(s.quality_selection_enabled || s.transcoding_enabled);
       }
 
-      // Fetch title and metadata in parallel
       let title     = null;
       let subtitles = [];
       let chapters  = [];
@@ -721,6 +1112,7 @@
       lucide.createIcons();
 
       const videoEl = document.querySelector('video');
+      attachCustomControls(videoEl);
       attachSubtitles(videoEl, videoId, subtitles);
       attachChapters(videoEl, chapters);
 

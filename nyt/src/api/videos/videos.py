@@ -1,4 +1,6 @@
 import os
+import shutil
+import subprocess
 import time
 import mimetypes
 import requests
@@ -14,12 +16,16 @@ _MIME_FALLBACK = "video/mp4"
 _CHUNK = 8 * 1024 * 1024  # 8 MB
 _FORMAT_TTL = 3600  # YouTube stream URLs stay valid for ~6 hours; cache conservatively
 
-_format_cache: dict[str, dict] = {}  # video_id -> {expires_at, formats, url_map}
+_format_cache: dict[str, dict] = {}  # video_id -> {expires_at, formats, url_map, video_only_ids, best_audio_url}
 
 
 def _mime_for(path: str) -> str:
     guessed, _ = mimetypes.guess_type(path)
     return guessed or _MIME_FALLBACK
+
+
+def _ffmpeg_available() -> bool:
+    return shutil.which('ffmpeg') is not None
 
 
 class VideosHandler:
@@ -46,13 +52,26 @@ class VideosHandler:
             logger.warning(f"Could not fetch formats for '{video_id}': {exc}")
             return []
 
-        formats = []
+        raw_formats = info.get("formats", [])
+
+        # Find best audio-only format; prefer m4a/AAC for MP4 container compatibility
+        audio_only = [
+            f for f in raw_formats
+            if f.get("vcodec") == "none" and f.get("acodec") != "none" and f.get("url")
+        ]
+        audio_only.sort(key=lambda f: (f.get("ext") == "m4a", f.get("abr") or 0), reverse=True)
+        best_audio_url = audio_only[0]["url"] if audio_only else None
+
+        formats: list[dict] = []
         seen: set[str] = set()
-        for f in info.get("formats", []):
+        video_only_ids: set[str] = set()
+
+        # First pass: muxed streams (audio + video), no merging needed
+        for f in raw_formats:
             height = f.get("height")
             if not height or not f.get("url"):
                 continue
-            if f.get("acodec") == "none":  # video-only DASH; skip (no audio)
+            if f.get("acodec") == "none" or f.get("vcodec") == "none":
                 continue
             fps   = f.get("fps") or 0
             label = f"{height}p{int(fps)}" if fps > 30 else f"{height}p"
@@ -66,12 +85,36 @@ class VideosHandler:
                 "ext":       f.get("ext", "mp4"),
             })
 
+        # Second pass: video-only DASH streams merged with best audio via ffmpeg.
+        # Only adds heights not already covered by muxed streams above.
+        if best_audio_url and _ffmpeg_available():
+            for f in raw_formats:
+                height = f.get("height")
+                if not height or not f.get("url"):
+                    continue
+                if f.get("acodec") != "none" or f.get("vcodec") == "none":
+                    continue
+                fps   = f.get("fps") or 0
+                label = f"{height}p{int(fps)}" if fps > 30 else f"{height}p"
+                if label in seen:
+                    continue
+                seen.add(label)
+                video_only_ids.add(f["format_id"])
+                formats.append({
+                    "format_id": f["format_id"],
+                    "label":     label,
+                    "height":    height,
+                    "ext":       f.get("ext", "mp4"),
+                })
+
         formats.sort(key=lambda x: x["height"], reverse=True)
 
         _format_cache[video_id] = {
-            "expires_at": time.monotonic() + _FORMAT_TTL,
-            "formats":    formats,
-            "url_map":    {f["format_id"]: f["url"] for f in info.get("formats", []) if f.get("url")},
+            "expires_at":     time.monotonic() + _FORMAT_TTL,
+            "formats":        formats,
+            "url_map":        {f["format_id"]: f["url"] for f in raw_formats if f.get("url")},
+            "video_only_ids": video_only_ids,
+            "best_audio_url": best_audio_url,
         }
         return formats
 
@@ -124,10 +167,15 @@ class VideosHandler:
     def _stream_youtube(self, video_id: str, start: int, end: int, format_id: str | None = None):
         stream_url = None
 
-        # Use cached URL if format_id was resolved by get_formats() earlier
         if format_id:
             cached = _format_cache.get(video_id)
             if cached and time.monotonic() < cached["expires_at"]:
+                # Video-only DASH format — merge with best audio via ffmpeg
+                if format_id in cached.get("video_only_ids", set()):
+                    video_url = cached["url_map"].get(format_id)
+                    audio_url = cached.get("best_audio_url")
+                    if video_url and audio_url:
+                        return self._stream_merged_youtube(video_url, audio_url)
                 stream_url = cached["url_map"].get(format_id)
 
         if not stream_url:
@@ -156,6 +204,34 @@ class VideosHandler:
                 for chunk in r.iter_content(chunk_size=_CHUNK):
                     if chunk:
                         yield chunk
+
+        return _gen()
+
+    def _stream_merged_youtube(self, video_url: str, audio_url: str):
+        cmd = [
+            'ffmpeg', '-loglevel', 'error',
+            '-i', video_url,
+            '-i', audio_url,
+            '-c', 'copy',
+            '-f', 'mp4',
+            '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+            'pipe:1',
+        ]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+        def _gen():
+            try:
+                while True:
+                    chunk = proc.stdout.read(_CHUNK)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                try:
+                    proc.terminate()
+                    proc.wait()
+                except Exception:
+                    pass
 
         return _gen()
 
