@@ -137,6 +137,58 @@
       outline: none;
     }
 
+    /* ── SEARCH ────────────────────────────────────────── */
+    .search-wrap {
+      flex: 1;
+      min-width: 180px;
+      max-width: 380px;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      color: var(--muted);
+      pointer-events: none;
+      display: flex;
+    }
+
+    #search-input {
+      width: 100%;
+      font-family: var(--font-body);
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink);
+      background: var(--surface);
+      border: 2px solid var(--ink);
+      border-radius: var(--radius-pill);
+      padding: 6px 34px 6px 36px;
+      outline: none;
+      box-shadow: 3px 3px 0 var(--shadow);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    #search-input::placeholder { color: var(--muted); font-weight: 500; }
+    #search-input:focus { border-color: var(--coral); box-shadow: 3px 3px 0 var(--coral-bg); }
+
+    .search-clear {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      border-radius: 50%;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .search-clear:hover { color: var(--ink); background: var(--shadow); }
+
     /* ── MAIN ──────────────────────────────────────────── */
     main {
       max-width: 1720px;
@@ -508,6 +560,15 @@
 
 <main>
   <div class="toolbar" id="toolbar" style="display:none">
+    <div class="search-wrap">
+      <span class="search-icon">
+        <i data-lucide="search" style="width:15px;height:15px"></i>
+      </span>
+      <input type="text" id="search-input" placeholder="Search videos…" autocomplete="off"
+             oninput="onSearch()" onkeydown="if(event.key==='Escape')clearSearch()">
+      <button class="search-clear" id="search-clear" style="display:none"
+              onclick="clearSearch()" aria-label="Clear search">✕</button>
+    </div>
     <label>Sort</label>
     <select id="sort-by" onchange="renderVideos()">
       <option value="date">By date</option>
@@ -571,7 +632,7 @@
           <img class="card-avatar" src="/api/v1/channels/${encodeURIComponent(v.channel_handle)}/avatar" alt="${esc(v.channel_handle)}" loading="lazy" onerror="this.style.visibility='hidden'">
           <div class="card-meta">
             <div class="card-title">${esc(v.video_title)}</div>
-            <div class="card-channel">${esc(v.channel_handle)}</div>
+            <div class="card-channel">${esc(v.channel_name || v.channel_handle)}</div>
           </div>
         </div>
       </a>`;
@@ -580,28 +641,39 @@
   function renderVideos() {
     const sort   = document.getElementById('sort-by').value;
     const filter = document.getElementById('filter-by').value;
+    const query  = (document.getElementById('search-input')?.value || '').trim().toLowerCase();
 
     let videos = [...allVideos];
 
     if (filter === 'unwatched') videos = videos.filter(v => !v.is_watched);
 
+    if (query) {
+      videos = videos.filter(v =>
+        (v.video_title    || '').toLowerCase().includes(query) ||
+        (v.channel_name   || '').toLowerCase().includes(query) ||
+        (v.channel_handle || '').toLowerCase().includes(query)
+      );
+    }
+
     if (sort === 'date') {
       videos.sort((a, b) => new Date(b.publish_date) - new Date(a.publish_date));
     } else if (sort === 'channel') {
-      videos.sort((a, b) => a.channel_handle.localeCompare(b.channel_handle));
+      videos.sort((a, b) => (a.channel_handle || '').localeCompare(b.channel_handle || ''));
     } else if (sort === 'unwatched') {
       videos.sort((a, b) => a.is_watched - b.is_watched);
     }
 
     if (videos.length === 0) {
+      const [icon, title, body] = query
+        ? ['search-x', 'No results', `Nothing matched <strong>${esc(query)}</strong> — try a different search.`]
+        : filter === 'unwatched'
+          ? ['check-circle', 'All caught up!', 'You have watched everything.']
+          : ['inbox', 'Nothing here yet!', 'Start tracking a channel and videos will appear here.'];
       root.innerHTML = `
         <div class="state">
-          <i data-lucide="inbox" class="state-icon"></i>
-          <h2>${filter === 'unwatched' ? 'All caught up!' : 'Nothing here yet!'}</h2>
-          <p>${filter === 'unwatched'
-            ? 'You have watched everything.'
-            : 'Start tracking a channel and videos will appear here.<br><code>nyt track --channel-handle &lt;handle&gt;</code>'
-          }</p>
+          <i data-lucide="${icon}" class="state-icon"></i>
+          <h2>${title}</h2>
+          <p>${body}</p>
         </div>`;
       lucide.createIcons();
       return;
@@ -609,6 +681,22 @@
 
     root.innerHTML = `<div class="grid">${videos.map(card).join('')}</div>`;
     lucide.createIcons();
+  }
+
+  function onSearch() {
+    const input = document.getElementById('search-input');
+    const clear = document.getElementById('search-clear');
+    if (clear) clear.style.display = input.value ? '' : 'none';
+    renderVideos();
+  }
+
+  function clearSearch() {
+    const input = document.getElementById('search-input');
+    const clear = document.getElementById('search-clear');
+    if (input) input.value = '';
+    if (clear) clear.style.display = 'none';
+    renderVideos();
+    input?.focus();
   }
 
   async function markWatched(e, videoId) {

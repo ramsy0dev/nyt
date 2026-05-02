@@ -244,6 +244,7 @@ class VideosHandler:
                 "video_id":                  video.video_id,
                 "video_title":               video.title,
                 "channel_handle":            video.channel_handle,
+                "channel_name":              channel_info.channel_name if channel_info else "",
                 "channel_avatar_url_default": channel_info.channel_avatar_url_default if channel_info else "",
                 "publish_date":              video.publish_date,
                 "thumbnail_url":             video.thumbnail_url,
