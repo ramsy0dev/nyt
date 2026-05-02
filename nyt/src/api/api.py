@@ -148,8 +148,10 @@ async def auth_login_route(body: LoginBody):
     ).hex()
 
     if body.username != config.ADMIN_USERNAME or pw_hash != config.ADMIN_PASSWORD_HASH:
+        logger.warning(f"Failed login attempt for user '{body.username}'")
         return JSONResponse({"ok": False, "message": "Invalid credentials"}, status_code=401)
 
+    logger.info(f"User '{body.username}' logged in")
     token = auth_manager.create_session()
     resp  = JSONResponse({"ok": True})
     resp.set_cookie("nyt_session", token, httponly=True, samesite="strict", max_age=86400 * 30)
@@ -174,6 +176,7 @@ async def auth_logout_route(request: Request):
     token = request.cookies.get("nyt_session")
     if token:
         auth_manager.revoke_session(token)
+        logger.info("User logged out")
     resp = JSONResponse({"ok": True})
     resp.delete_cookie("nyt_session")
     return resp
@@ -343,6 +346,7 @@ async def mark_video_watched_route(video_id: str):
         video_id=video_id,
         values={"is_watched": True, "timestamp": date_in_gmt()},
     )
+    logger.debug(f"Marked '{video_id}' as watched")
     return JSONResponse({"status_code": 200})
 
 
@@ -353,6 +357,7 @@ async def mark_video_unwatched_route(video_id: str):
         video_id=video_id,
         values={"is_watched": False, "timestamp": date_in_gmt()},
     )
+    logger.debug(f"Marked '{video_id}' as unwatched")
     return JSONResponse({"status_code": 200})
 
 
@@ -392,6 +397,7 @@ async def download_video_route(video_id: str):
             update_progress(video_id, {"title": video.title or video_id, "status": "error"})
             logger.warning(f"Manual download failed for '{video_id}': {exc}")
 
+    logger.info(f"Download queued for '{video.title or video_id}'")
     threading.Thread(target=_do_download, daemon=True).start()
     return JSONResponse({"status_code": 202, "message": "Download started"})
 
@@ -423,6 +429,7 @@ async def delete_video_file_route(video_id: str):
         "variants":      [],
         "subtitles":     [],
     })
+    logger.info(f"Deleted local file for '{video.title or video_id}'")
     return JSONResponse({"status_code": 200})
 
 
@@ -435,6 +442,7 @@ async def delete_video_route(video_id: str):
     if video.is_downloaded:
         _delete_video_files(video)
     classes.database_handler.delete_video_row(video_id=video_id)
+    logger.info(f"Removed video '{video.title or video_id}' from library")
     return JSONResponse({"status_code": 200})
 
 
@@ -557,6 +565,7 @@ async def update_general_settings_route(body: GeneralSettingsBody):
         auto_delete_watched_days=body.auto_delete_watched_days,
         auto_update_enabled=body.auto_update_enabled,
     )
+    logger.info("Settings updated")
     return JSONResponse({"ok": True})
 
 
@@ -583,6 +592,7 @@ async def update_auth_settings_route(body: AuthSettingsBody):
     salt    = secrets.token_hex(16)
     pw_hash = hashlib.pbkdf2_hmac("sha256", body.new_password.encode(), salt.encode(), 200_000).hex()
     ConfigManager().save_auth(body.username.strip(), pw_hash, salt)
+    logger.info(f"Auth credentials updated for user '{body.username.strip()}'")
     return JSONResponse({"ok": True})
 
 
@@ -602,6 +612,7 @@ async def disable_auth_route(body: DisableAuthBody):
     if pw_hash != config.ADMIN_PASSWORD_HASH:
         return JSONResponse({"ok": False, "message": "Password is incorrect"}, status_code=401)
     ConfigManager().save_auth("", "", "")
+    logger.info("Authentication disabled")
     return JSONResponse({"ok": True})
 
 
@@ -635,6 +646,8 @@ async def version_route():
     latest  = _version_cache["tag"]
     current = constant.VERSION
     config  = ConfigManager().load_config()
+    if latest and latest != current:
+        logger.info(f"Update available: {current} → {latest}")
     return JSONResponse({
         "current_version":    current,
         "latest_version":     latest,

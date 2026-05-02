@@ -61,6 +61,8 @@ class NYT:
             added_at                   = date_in_gmt(),
         )
         self.database_handler.add_channel_to_channels(channel=channel)
+        display = info.get("channel_name") or channel_handle
+        logger.info(f"Now tracking '{display}' (@{channel_handle}) — starting from {video_starting_point_id}")
 
         avatar_url = (
             channel.channel_avatar_url_high
@@ -74,6 +76,7 @@ class NYT:
         if not self.database_handler.check_channel_tracked(channel_handle):
             return constant.CHANNEL_NOT_TRACKED
         self.database_handler.delete_channel_row(channel_handle=channel_handle)
+        logger.info(f"Stopped tracking '@{channel_handle}' — videos and files removed")
 
     def check_channel_tracked(self, channel_handle: str) -> bool:
         return self.database_handler.check_channel_tracked(channel_handle)
@@ -334,6 +337,8 @@ class NYT:
         }
         video_url = f"{self.YOUTUBE_BASE}/watch?v={video_id}"
 
+        import time as _time
+        _t0 = _time.monotonic()
         with yt_dlp.YoutubeDL(opts) as ydl:
             info      = ydl.extract_info(video_url, download=False)
             ydl.download([video_url])
@@ -343,7 +348,9 @@ class NYT:
             publish_date  = datetime.strptime(info["upload_date"], "%Y%m%d")
             size          = Path(file_name).stat().st_size
             height        = info.get("height") or 0
-            logger.debug(f"Downloaded: {file_name!r}, title={title!r}, height={height}")
+            elapsed       = _time.monotonic() - _t0
+            size_mb       = size / 1024 ** 2
+            logger.info(f"Downloaded '{title}' — {size_mb:.1f} MB, {height}p, {elapsed:.0f}s")
 
         # Collect subtitle VTT files written alongside the video
         subtitles = self._collect_subtitles(file_name)
@@ -418,6 +425,8 @@ class NYT:
         targets = [h for h in TARGETS if h < source_height]
         if not targets:
             return
+
+        logger.info(f"Transcoding '{video_id}' → {', '.join(f'{h}p' for h in targets)} (source: {source_height}p)")
 
         try:
             result = subprocess.run(

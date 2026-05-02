@@ -1,3 +1,5 @@
+from loguru import logger
+
 from nyt.src.nyt import NYT
 from nyt.src.database.database_handler import DatabaseHandler
 
@@ -34,10 +36,12 @@ class TrackedChannels:
 
     def add_channel_to_tracked_list(self, channel_handle: str) -> dict:
         if self.database_handler.check_channel_tracked(channel_handle):
+            logger.info(f"Channel '@{channel_handle}' is already tracked — skipping")
             return {
                 "status_code": 200,
                 "message": f"The channel '{channel_handle}' is already being tracked.",
             }
+        logger.info(f"Adding channel '@{channel_handle}' — fetching info from YouTube")
         self.nyt.add_channel(channel_handle=channel_handle)
         return {
             "status_code": 200,
@@ -50,6 +54,7 @@ class TrackedChannels:
                 "status_code": 404,
                 "message": f"The channel '{channel_handle}' is not being tracked.",
             }
+        logger.info(f"Removing channel '@{channel_handle}' and its videos")
         self.database_handler.delete_channel_row(channel_handle=channel_handle)
         return {
             "status_code": 200,

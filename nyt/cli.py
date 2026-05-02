@@ -80,6 +80,8 @@ def _watcher_loop(delay_minutes: int) -> None:
 
     while True:
         watcher_state.running = True
+        t0 = time.monotonic()
+        logger.debug("Watcher cycle starting")
         try:
             classes.nyt.watch()
             cfg = ConfigManager().load_config()
@@ -91,13 +93,23 @@ def _watcher_loop(delay_minutes: int) -> None:
             logger.error(f"Watcher error: {e}")
             watcher_state.error = str(e)
 
+        elapsed = time.monotonic() - t0
         watcher_state.next_run = datetime.now(timezone.utc) + timedelta(minutes=delay_minutes)
         watcher_state.running  = False
+        logger.debug(f"Watcher cycle done in {elapsed:.1f}s — sleeping 60s (per-channel timing inside watch)")
         time.sleep(60)  # tight loop; per-channel timing handled inside watch()
 
 
 def cmd_serve(args) -> None:
-    logger.info(f"Starting watcher thread (global interval: {args.delay} min)")
+    cfg = config_manager.load_config()
+    logger.info(f"nyt {constant.VERSION}")
+    logger.info(f"Config:    {cfg.CONFIG_FILE_PATH}")
+    logger.info(f"Database:  {cfg.DATABASE_PATH}")
+    logger.info(f"Videos:    {cfg.VIDEOS_PREFIX_DIRECTORY}")
+    logger.info(f"Auth:      {'enabled (user: ' + cfg.ADMIN_USERNAME + ')' if cfg.ADMIN_USERNAME else 'disabled'}")
+    logger.info(f"Watcher:   {args.delay} min interval")
+    logger.info(f"Serving on http://{args.host}:{args.port}")
+
     t = threading.Thread(
         target=_watcher_loop,
         args=(args.delay,),

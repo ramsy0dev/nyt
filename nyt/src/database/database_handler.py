@@ -109,15 +109,19 @@ class DatabaseHandler:
 
             if is_fresh:
                 conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+                logger.info(f"Database initialised at schema v{_SCHEMA_VERSION} — {self._path}")
             else:
                 current_version = conn.execute("PRAGMA user_version").fetchone()[0]
-                for version, sql in _MIGRATIONS:
-                    if version > current_version:
-                        try:
-                            conn.execute(sql)
-                            conn.execute(f"PRAGMA user_version = {version}")
-                        except Exception as exc:
-                            logger.warning(f"Migration v{version} skipped: {exc}")
+                pending = [(v, s) for v, s in _MIGRATIONS if v > current_version]
+                if pending:
+                    logger.info(f"Running {len(pending)} database migration(s) (v{current_version} → v{_SCHEMA_VERSION})")
+                for version, sql in pending:
+                    try:
+                        conn.execute(sql)
+                        conn.execute(f"PRAGMA user_version = {version}")
+                        logger.debug(f"Migration v{version} applied")
+                    except Exception as exc:
+                        logger.warning(f"Migration v{version} skipped: {exc}")
 
             conn.commit()
 
