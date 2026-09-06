@@ -1,6 +1,6 @@
 PACKAGE = "nyt"
-VERSION = "v0.2.3"
-AUTHOR  = "ramsy0dev"
+VERSION = "v0.2.4"
+AUTHOR  = "thefr0gg"
 
 CHANNEL_ALREADY_TRACKED = 1
 CHANNEL_NOT_TRACKED     = 10

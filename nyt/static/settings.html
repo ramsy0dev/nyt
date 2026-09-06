@@ -494,18 +494,6 @@
     </div>
 
     <div class="field">
-      <label>Quality selection</label>
-      <span class="field-hint">Show a quality picker on stream-only videos. Requires an extra network request (~2s) on first play to resolve available formats.</span>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
-        <label class="toggle">
-          <input type="checkbox" id="toggle-quality" onchange="savePlayer()">
-          <span class="toggle-track"></span>
-        </label>
-        <span id="quality-label" style="font-size:14px;font-weight:700;color:var(--muted);">Disabled</span>
-      </div>
-    </div>
-
-    <div class="field">
       <label>Transcoding</label>
       <span class="field-hint">Generate 720p / 480p / 360p versions of downloaded videos via FFmpeg in the background. Resource-intensive. Requires FFmpeg installed on the server.</span>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
@@ -594,9 +582,9 @@
     </div>
 
     <div style="margin-top:18px;display:flex;gap:14px;align-items:center;">
-      <a href="https://github.com/ramsy0dev/nyt" target="_blank" rel="noopener"
+      <a href="https://github.com/thefr0gg/nyt" target="_blank" rel="noopener"
          style="font-size:13px;font-weight:700;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:5px;">
-        <i data-lucide="github" size="14"></i> ramsy0dev/nyt
+        <i data-lucide="github" size="14"></i> thefr0gg/nyt
       </a>
       <span style="color:var(--shadow);">·</span>
       <span style="font-size:13px;color:var(--muted);">GPL-3.0</span>
@@ -776,13 +764,6 @@
     bar.style.width = `${pct}%`;
     bar.style.background = pct >= 90 ? 'var(--red)' : pct >= 70 ? '#e89a3c' : 'var(--coral)';
 
-    // Quality selection
-    const qToggle = document.getElementById('toggle-quality');
-    const qLabel  = document.getElementById('quality-label');
-    qToggle.checked  = !!s.quality_selection_enabled;
-    qLabel.textContent = s.quality_selection_enabled ? 'Enabled' : 'Disabled';
-    qLabel.style.color = s.quality_selection_enabled ? 'var(--coral)' : 'var(--muted)';
-
     // Transcoding
     const tToggle = document.getElementById('toggle-transcode');
     const tLabel  = document.getElementById('transcode-label');
@@ -875,11 +856,6 @@
 
   // ── Player ─────────────────────────────────────────────
   async function savePlayer() {
-    const qOn = document.getElementById('toggle-quality').checked;
-    const qLabel = document.getElementById('quality-label');
-    qLabel.textContent = qOn ? 'Enabled' : 'Disabled';
-    qLabel.style.color = qOn ? 'var(--coral)' : 'var(--muted)';
-
     const tOn = document.getElementById('toggle-transcode').checked;
     const tLabel = document.getElementById('transcode-label');
     tLabel.textContent = tOn ? 'Enabled' : 'Disabled';
@@ -891,9 +867,9 @@
     await apiFetch('/api/v1/settings/general', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ watch_delay_minutes: delay, videos_directory: dir, quality_selection_enabled: qOn, transcoding_enabled: tOn }),
+      body: JSON.stringify({ watch_delay_minutes: delay, videos_directory: dir, transcoding_enabled: tOn }),
     });
-    showToast(on ? 'Quality selection enabled' : 'Quality selection disabled');
+    showToast(tOn ? 'Transcoding enabled' : 'Transcoding disabled');
   }
 
   // ── Enable auth ───────────────────────────────────────

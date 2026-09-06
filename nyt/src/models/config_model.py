@@ -17,6 +17,7 @@ class Config:
     VIDEOS_PREFIX_DIRECTORY: str = str(_ROOT / "videos")
     AVATARS_DIRECTORY:       str = str(_ROOT / "avatars")
     ASSETS_PREFIX:           str = str(_ROOT / "assets")
+    DENO_DIRECTORY:          str = str(_ROOT / "deno")
 
     # Auth (empty string = auth disabled)
     ADMIN_USERNAME:      str = ""
@@ -27,8 +28,7 @@ class Config:
     WATCH_DELAY_MINUTES: int = 60
 
     # Player
-    QUALITY_SELECTION_ENABLED: bool = False
-    TRANSCODING_ENABLED:       bool = False
+    TRANSCODING_ENABLED: bool = False
 
     # Storage
     STORAGE_LIMIT_GB: float = 0.0  # 0 = unlimited

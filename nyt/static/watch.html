@@ -128,11 +128,14 @@
     .player-frame.ctrl-show,
     .player-frame.ctrl-pause { cursor: default; }
 
-    video {
+    .player-frame.yt-frame { cursor: default; }
+
+    video, iframe.yt-embed {
       width: 100%;
       height: 100%;
       display: block;
       outline: none;
+      border: none;
     }
 
     /* ── SUBTITLE STYLING ──────────────────────────────── */
@@ -384,7 +387,14 @@
       letter-spacing: 0.06em;
     }
 
-    #quality-select {
+    .quality-dd {
+      position: relative;
+    }
+
+    .quality-dd-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
       font-family: var(--font-body);
       font-size: 14px;
       font-weight: 700;
@@ -392,15 +402,87 @@
       background: var(--surface);
       border: 2.5px solid var(--ink);
       border-radius: 8px 5px 10px 6px / 6px 10px 5px 8px;
-      padding: 5px 10px;
+      padding: 6px 10px 6px 12px;
       cursor: pointer;
       outline: none;
       box-shadow: 3px 3px 0 var(--shadow);
-      transition: border-color 0.15s;
+      transition: border-color 0.15s, transform 0.08s, box-shadow 0.08s;
     }
 
-    #quality-select:focus { border-color: var(--coral); }
-    #quality-select:disabled { opacity: 0.45; cursor: default; }
+    .quality-dd-btn:hover  { border-color: var(--coral); }
+    .quality-dd-btn:active { transform: translateY(1px); box-shadow: 2px 2px 0 var(--shadow); }
+    .quality-dd-btn:focus-visible { border-color: var(--coral); }
+    .quality-dd-btn:disabled { opacity: 0.45; cursor: default; pointer-events: none; }
+
+    .quality-dd-btn .chev {
+      transition: transform 0.18s;
+      flex-shrink: 0;
+      color: var(--muted);
+    }
+
+    .quality-dd.open .quality-dd-btn .chev { transform: rotate(180deg); }
+    .quality-dd.open .quality-dd-btn { border-color: var(--coral); }
+
+    .quality-dd-menu {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      min-width: 132px;
+      background: var(--surface);
+      border: 2.5px solid var(--ink);
+      border-radius: 10px 6px 12px 7px / 7px 12px 6px 10px;
+      box-shadow: 4px 4px 0 var(--shadow);
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      opacity: 0;
+      transform: translateY(4px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.14s, transform 0.14s;
+      z-index: 20;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    .quality-dd.open .quality-dd-menu {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: all;
+    }
+
+    .quality-dd-opt {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-family: var(--font-body);
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--ink);
+      background: none;
+      border: none;
+      border-radius: 6px 4px 7px 4px / 4px 7px 4px 6px;
+      padding: 7px 9px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .quality-dd-opt:hover { background: var(--coral-bg); }
+
+    .quality-dd-opt.active {
+      color: var(--coral);
+      background: var(--coral-bg);
+    }
+
+    .quality-dd-opt .check {
+      opacity: 0;
+      flex-shrink: 0;
+      color: var(--coral);
+    }
+
+    .quality-dd-opt.active .check { opacity: 1; }
 
     .quality-spinner {
       width: 16px;
@@ -702,14 +784,16 @@
     return formatId ? `${base}?format_id=${encodeURIComponent(formatId)}` : base;
   }
 
+  let _formats = [];
+
   async function loadFormats(videoId) {
     const wrap    = document.getElementById('quality-wrap');
-    const sel     = document.getElementById('quality-select');
+    const btn     = document.getElementById('quality-dd-btn');
     const spinner = document.getElementById('quality-spinner');
-    if (!wrap || !sel) return;
+    if (!wrap || !btn) return;
 
     spinner.classList.add('show');
-    sel.disabled = true;
+    btn.disabled = true;
 
     try {
       const res = await apiFetch(`/api/v1/videos/${encodeURIComponent(videoId)}/formats`);
@@ -721,13 +805,12 @@
         return;
       }
 
-      sel.innerHTML = formats.map(f =>
-        `<option value="${esc(f.format_id)}">${esc(f.label)}</option>`
-      ).join('');
-
+      _formats         = formats;
       _currentFormatId = formats[0].format_id;
-      sel.value        = _currentFormatId;
-      sel.disabled     = false;
+
+      renderQualityMenu();
+      document.getElementById('quality-dd-current').textContent = formats[0].label;
+      btn.disabled = false;
     } catch {
       wrap.style.display = 'none';
     } finally {
@@ -735,21 +818,71 @@
     }
   }
 
-  function attachQualitySelector(videoId) {
-    const sel = document.getElementById('quality-select');
-    if (!sel) return;
+  function renderQualityMenu() {
+    const menu = document.getElementById('quality-dd-menu');
+    if (!menu) return;
+    menu.innerHTML = _formats.map(f => `
+      <button type="button" class="quality-dd-opt${f.format_id === _currentFormatId ? ' active' : ''}"
+              role="option" aria-selected="${f.format_id === _currentFormatId}"
+              data-format-id="${esc(f.format_id)}">
+        ${esc(f.label)}
+        <i data-lucide="check" class="check" style="width:14px;height:14px;"></i>
+      </button>`).join('');
+    lucide.createIcons();
+  }
 
-    sel.addEventListener('change', () => {
+  function attachQualitySelector(videoId) {
+    const dd    = document.getElementById('quality-dd');
+    const btn   = document.getElementById('quality-dd-btn');
+    const menu  = document.getElementById('quality-dd-menu');
+    const label = document.getElementById('quality-dd-current');
+    if (!dd || !btn || !menu) return;
+
+    function closeMenu() {
+      dd.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function openMenu() {
+      dd.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (btn.disabled) return;
+      dd.classList.contains('open') ? closeMenu() : openMenu();
+    });
+
+    menu.addEventListener('click', e => {
+      const opt = e.target.closest('.quality-dd-opt');
+      if (!opt) return;
+      e.stopPropagation();
+      const formatId = opt.dataset.formatId;
+      closeMenu();
+      if (formatId === _currentFormatId) return;
+
       const videoEl = document.querySelector('video');
       if (!videoEl) return;
       const pos = videoEl.currentTime;
-      _currentFormatId = sel.value;
+      _currentFormatId = formatId;
+      label.textContent = _formats.find(f => f.format_id === formatId)?.label || '';
+      renderQualityMenu();
+
       videoEl.src = buildSrc(videoId, _currentFormatId);
       videoEl.load();
       videoEl.addEventListener('canplay', () => {
         videoEl.currentTime = pos;
         videoEl.play();
       }, { once: true });
+    });
+
+    document.addEventListener('click', e => {
+      if (!dd.contains(e.target)) closeMenu();
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeMenu();
     });
   }
 
@@ -999,7 +1132,7 @@
     });
   }
 
-  // ── Player ────────────────────────────────────────────
+  // ── Player: downloaded (local file, custom controls) ──
   function showPlayer(videoId, title, qualityEnabled) {
     const src = buildSrc(videoId, null);
     root.innerHTML = `
@@ -1048,9 +1181,14 @@
         <div class="quality-wrap" id="quality-wrap" style="${qualityEnabled ? '' : 'display:none'}">
           <span class="quality-label">Quality</span>
           <div class="quality-spinner" id="quality-spinner"></div>
-          <select id="quality-select" disabled>
-            <option>Loading…</option>
-          </select>
+          <div class="quality-dd" id="quality-dd">
+            <button class="quality-dd-btn" id="quality-dd-btn" type="button" disabled
+                    aria-haspopup="listbox" aria-expanded="false">
+              <span id="quality-dd-current">Loading…</span>
+              <i data-lucide="chevron-up" class="chev" style="width:15px;height:15px;"></i>
+            </button>
+            <div class="quality-dd-menu" id="quality-dd-menu" role="listbox"></div>
+          </div>
         </div>
       </div>`;
 
@@ -1060,6 +1198,29 @@
     if (qualityEnabled) {
       loadFormats(videoId).then(() => attachQualitySelector(videoId));
     }
+  }
+
+  // ── Player: stream-only (not downloaded — YouTube iframe) ──
+  function showYoutubePlayer(videoId, title) {
+    const saved  = getSavedPosition(videoId);
+    const start  = saved > 5 ? Math.floor(saved) : 0;
+    const embed  = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}`
+                 + `?autoplay=1&start=${start}&rel=0&modestbranding=1`;
+
+    root.innerHTML = `
+      <div class="player-frame yt-frame" id="player-frame">
+        <iframe class="yt-embed"
+                src="${esc(embed)}"
+                title="YouTube video player"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen></iframe>
+      </div>
+      <div class="player-meta">
+        ${title ? `<div class="video-title">${esc(title)}</div>` : '<div></div>'}
+        <div class="quality-wrap" style="color:var(--muted);font-size:13px;font-weight:600;">
+          Streaming from YouTube — use the player's own quality settings
+        </div>
+      </div>`;
   }
 
   // ── Init ──────────────────────────────────────────────
@@ -1085,12 +1246,13 @@
       if (settingsRes && settingsRes.ok) {
         const settingsData = await settingsRes.json();
         const s = settingsData.settings ?? {};
-        qualityEnabled = !!(s.quality_selection_enabled || s.transcoding_enabled);
+        qualityEnabled = !!s.transcoding_enabled;
       }
 
-      let title     = null;
-      let subtitles = [];
-      let chapters  = [];
+      let title        = null;
+      let isDownloaded = true;
+      let subtitles    = [];
+      let chapters      = [];
 
       const [listRes, metaRes] = await Promise.all([
         apiFetch('/api/v1/videos/list/').catch(() => null),
@@ -1099,7 +1261,16 @@
 
       if (listRes && listRes.ok) {
         const { videos_info } = await listRes.json();
-        title = videos_info?.find(v => v.video_id === videoId)?.video_title ?? null;
+        const entry = videos_info?.find(v => v.video_id === videoId);
+        title        = entry?.video_title ?? null;
+        isDownloaded = entry ? !!entry.is_downloaded : true;
+      }
+
+      if (!isDownloaded) {
+        // Not downloaded — play directly from YouTube via its own embed player,
+        // which already handles quality selection natively.
+        showYoutubePlayer(videoId, title);
+        return;
       }
 
       if (metaRes && metaRes.ok) {

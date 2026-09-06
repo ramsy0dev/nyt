@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.2.4 — 2026-09-06
+
+### Changed
+
+- Project moved to `thefr0gg/nyt` on GitHub — all repo URLs, the `nyt superuser`/update-check API, and asset/release links updated accordingly.
+- Stream-only (not-yet-downloaded) YouTube videos now play via a native YouTube iframe embed instead of nyt proxying/merging YouTube's CDN streams itself. Quality selection for these videos is handled by YouTube's own player.
+- The quality dropdown for downloaded, transcoded videos has a redesigned custom UI matching the app's visual style, replacing the native `<select>`.
+- Video cards on the home grid now show a relative publish date (e.g. "3 days ago").
+
+### Removed
+
+- The "Quality selection" setting and its backend YouTube-format-resolution/merging code, made obsolete by the iframe change above.
+
+### Fixes
+
+- `yt-dlp` metadata-only fetches no longer fail with "Requested format is not available" — removed an unnecessary format constraint and wired in `deno` (auto-installed on first run) so YouTube's signature challenges resolve correctly instead of silently degrading to bot-check errors.
+
+---
+
 ## v0.2.3 — 2026-05-01
 
 ### Fixes

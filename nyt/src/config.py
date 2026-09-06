@@ -31,8 +31,7 @@ class ConfigManager:
         cfg.WATCH_DELAY_MINUTES = int(nyt.get("watcher", {}).get("watch_delay_minutes", cfg.WATCH_DELAY_MINUTES))
 
         player = nyt.get("player", {})
-        cfg.QUALITY_SELECTION_ENABLED = bool(player.get("quality_selection_enabled", cfg.QUALITY_SELECTION_ENABLED))
-        cfg.TRANSCODING_ENABLED       = bool(player.get("transcoding_enabled",       cfg.TRANSCODING_ENABLED))
+        cfg.TRANSCODING_ENABLED = bool(player.get("transcoding_enabled", cfg.TRANSCODING_ENABLED))
 
         storage = nyt.get("storage", {})
         cfg.STORAGE_LIMIT_GB = float(storage.get("limit_gb", cfg.STORAGE_LIMIT_GB))
@@ -57,7 +56,6 @@ class ConfigManager:
         watch_delay_minutes: int | None = None,
         videos_directory: str | None = None,
         storage_limit_gb: float | None = None,
-        quality_selection_enabled: bool | None = None,
         transcoding_enabled: bool | None = None,
         auto_delete_watched_days: int | None = None,
         auto_update_enabled: bool | None = None,
@@ -69,8 +67,6 @@ class ConfigManager:
             cfg.VIDEOS_PREFIX_DIRECTORY = videos_directory
         if storage_limit_gb is not None:
             cfg.STORAGE_LIMIT_GB = storage_limit_gb
-        if quality_selection_enabled is not None:
-            cfg.QUALITY_SELECTION_ENABLED = quality_selection_enabled
         if transcoding_enabled is not None:
             cfg.TRANSCODING_ENABLED = transcoding_enabled
         if auto_delete_watched_days is not None:
@@ -108,7 +104,6 @@ class ConfigManager:
             f'limit_gb = {c.STORAGE_LIMIT_GB}\n'
             f'\n'
             f'[nyt.player]\n'
-            f'quality_selection_enabled = {"true" if c.QUALITY_SELECTION_ENABLED else "false"}\n'
             f'transcoding_enabled = {"true" if c.TRANSCODING_ENABLED else "false"}\n'
             f'\n'
             f'[nyt.cleanup]\n'

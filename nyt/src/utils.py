@@ -1,4 +1,6 @@
+import os
 import re
+import shutil
 import sys
 import uuid
 import subprocess
@@ -115,3 +117,90 @@ def download_assets() -> None:
 
 def create_assets_prefix() -> None:
     _assets_dir().mkdir(parents=True, exist_ok=True)
+
+
+# ── Deno (JS runtime required by yt-dlp for reliable YouTube extraction) ───────
+
+def _deno_dir() -> Path:
+    from nyt.src.config import ConfigManager  # late import — avoids circular dependency
+    return Path(ConfigManager().load_config().DENO_DIRECTORY)
+
+
+def _deno_bin_path() -> Path:
+    name = "deno.exe" if sys.platform == "win32" else "deno"
+    return _deno_dir() / "bin" / name
+
+
+def find_deno() -> str | None:
+    """Return a usable deno executable path, checking PATH first, then our own install dir."""
+    on_path = shutil.which("deno")
+    if on_path:
+        return on_path
+    local = _deno_bin_path()
+    return str(local) if local.exists() else None
+
+
+def check_deno() -> bool:
+    return find_deno() is not None
+
+
+def install_deno() -> str | None:
+    """
+    Download and install deno into ~/.nyt/deno/ so yt-dlp can solve YouTube's
+    JS signature challenges. Returns the executable path on success, else None.
+    Safe to call repeatedly — no-ops if deno is already available.
+    """
+    existing = find_deno()
+    if existing:
+        return existing
+
+    install_dir = _deno_dir()
+    install_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Installing deno (required by yt-dlp for YouTube extraction) into '{install_dir}' ...")
+
+    try:
+        if sys.platform == "win32":
+            script = _requests.get(
+                "https://deno.land/install.ps1", timeout=30
+            ).text
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+                capture_output=True, text=True, timeout=180,
+                env={**os.environ, "DENO_INSTALL": str(install_dir)},
+            )
+        else:
+            script = _requests.get(
+                "https://deno.land/install.sh", timeout=30
+            ).text
+            result = subprocess.run(
+                ["sh", "-c", script],
+                capture_output=True, text=True, timeout=180,
+                env={**os.environ, "DENO_INSTALL": str(install_dir)},
+            )
+
+        if result.returncode != 0:
+            logger.warning(
+                "Automatic deno install failed — YouTube extraction may fail with "
+                "'Sign in to confirm you're not a bot' or format errors until it's "
+                f"installed manually (see https://docs.deno.com/runtime/getting_started/installation/). "
+                f"Install output:\n{result.stderr or result.stdout}"
+            )
+            return None
+    except Exception as exc:
+        logger.warning(
+            "Automatic deno install failed — YouTube extraction may fail with "
+            "'Sign in to confirm you're not a bot' or format errors until it's "
+            f"installed manually (see https://docs.deno.com/runtime/getting_started/installation/). "
+            f"Error: {exc}"
+        )
+        return None
+
+    found = find_deno()
+    if found:
+        logger.info(f"deno installed at '{found}'")
+    else:
+        logger.warning(
+            "deno install script ran but the executable could not be located afterwards — "
+            "YouTube extraction may be degraded until it's installed manually."
+        )
+    return found

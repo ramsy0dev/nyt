@@ -321,6 +321,17 @@
       text-overflow: ellipsis;
     }
 
+    .card-date {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      opacity: 0.75;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+
     /* ── SKELETON ──────────────────────────────────────── */
     @keyframes shimmer {
       0%   { background-position: 200% 0; }
@@ -601,6 +612,20 @@
     return d.innerHTML;
   }
 
+  function fmtPublishDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (days < 0)  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 7)   return `${days} days ago`;
+    if (days < 30)  return `${Math.floor(days / 7)} week${Math.floor(days / 7) > 1 ? 's' : ''} ago`;
+    if (days < 365) return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
   function skels(n) {
     return `<div class="grid">${Array.from({ length: n }, () => `
       <div class="skel">
@@ -633,6 +658,7 @@
           <div class="card-meta">
             <div class="card-title">${esc(v.video_title)}</div>
             <div class="card-channel">${esc(v.channel_name || v.channel_handle)}</div>
+            <div class="card-date">${esc(fmtPublishDate(v.publish_date))}</div>
           </div>
         </div>
       </a>`;

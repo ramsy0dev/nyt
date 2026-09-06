@@ -18,7 +18,7 @@ class _VideoEntry:
 from nyt.src.database.database_handler import DatabaseHandler
 from nyt.src.database.tables.channels_table import Channels
 from nyt.src.database.tables.videos_table import Videos
-from nyt.src.utils import date_in_gmt, generate_uid, send_notification
+from nyt.src.utils import date_in_gmt, generate_uid, send_notification, find_deno
 from nyt.src.config import ConfigManager
 
 
@@ -27,15 +27,89 @@ class NYT:
     DOWNLOAD_RETRIES = 3
     show_notification = True
 
-    _ydl_base_opts: dict = {
-        "quiet":    True,
-        "progress": True,
-        "format":   "best[ext=mp4]/best",
-    }
+    _deno_warned = False
 
     def __init__(self) -> None:
         self.config           = ConfigManager().load_config()
         self.database_handler = DatabaseHandler(database_path=self.config.DATABASE_PATH)
+
+    # ── yt-dlp option builders ──────────────────────────────────────────────────
+
+    def _ydl_common_opts(self) -> dict:
+        """
+        Base options shared by every yt-dlp call. Points yt-dlp at deno (needed to
+        solve YouTube's "n" signature challenge) and fetches its solver script —
+        without both, extraction fails with misleading errors like "Requested
+        format is not available" or "Sign in to confirm you're not a bot", even
+        for public videos with no real access restriction.
+        """
+        deno_path = find_deno()
+        if not deno_path and not NYT._deno_warned:
+            NYT._deno_warned = True
+            logger.warning(
+                "deno (JS runtime) not found — YouTube extraction may intermittently fail "
+                "with 'Sign in to confirm you're not a bot' or 'Requested format is not "
+                "available', even for normal public videos. nyt tries to auto-install deno "
+                "on startup; if that failed, install it manually from "
+                "https://docs.deno.com/runtime/getting_started/installation/ and restart nyt."
+            )
+
+        opts: dict = {"quiet": True, "remote_components": {"ejs:github"}}
+        if deno_path:
+            opts["js_runtimes"] = {"deno": {"path": deno_path}}
+        return opts
+
+    def _ydl_base_opts(self) -> dict:
+        return {
+            **self._ydl_common_opts(),
+            "progress": True,
+            "format":   "best[ext=mp4]/best",
+        }
+
+    @staticmethod
+    def _explain_ydl_error(exc: Exception) -> str:
+        """
+        Translate a raw yt-dlp exception into a plain-language reason, so failures
+        read as "YouTube blocked/restricted this" rather than looking like a nyt bug.
+        """
+        msg = str(exc).lower()
+
+        if "sign in to confirm" in msg and "bot" in msg:
+            return (
+                "YouTube flagged this request as a bot and is demanding sign-in. "
+                "This is usually caused by too many requests from this IP in a short "
+                "window, or a missing/broken JS runtime (deno) needed to solve YouTube's "
+                "challenge. It should clear up on its own after a cooldown; if it keeps "
+                "happening, verify 'deno --version' works and consider raising the watch "
+                "delay so fewer videos are checked back-to-back."
+            )
+        if "requested format is not available" in msg:
+            return (
+                "yt-dlp couldn't resolve any downloadable format for this video. This is "
+                "almost always YouTube serving a degraded response because of bot-detection "
+                "or rate-limiting (see the 'Sign in to confirm' case) rather than the video "
+                "genuinely having no formats — a missing/broken deno install is the most "
+                "common cause."
+            )
+        if "members-only" in msg or "join this channel" in msg or "level:" in msg:
+            return (
+                "This video is restricted to paying channel members. nyt has no way to "
+                "access member-only content — this is expected and not an error to fix."
+            )
+        if "private video" in msg:
+            return "This video is private and cannot be accessed."
+        if "video unavailable" in msg:
+            return "YouTube reports this video as unavailable (deleted, region-blocked, or removed by the uploader)."
+        if "429" in msg or "too many requests" in msg:
+            return (
+                "YouTube is rate-limiting this IP (HTTP 429). This is usually transient — "
+                "it should resolve after a cooldown. If it happens often, consider raising "
+                "the watch delay so fewer requests are made back-to-back."
+            )
+        if "http error 403" in msg or "forbidden" in msg:
+            return "YouTube returned 403 Forbidden — likely a temporary block or an outdated yt-dlp version."
+
+        return str(exc)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -162,10 +236,16 @@ class NYT:
                             downloaded = True
                             break
                         except Exception as error:
+                            reason = self._explain_ydl_error(error)
                             if attempt == self.DOWNLOAD_RETRIES:
-                                logger.warning(f"Skipping '{video.title}' after {self.DOWNLOAD_RETRIES} failed attempts.")
+                                logger.warning(
+                                    f"Skipping '{video.title}' after {self.DOWNLOAD_RETRIES} failed attempts — {reason}"
+                                )
                             else:
-                                logger.warning(f"Download attempt {attempt}/{self.DOWNLOAD_RETRIES} failed: {error}. Retrying…")
+                                logger.warning(
+                                    f"Download attempt {attempt}/{self.DOWNLOAD_RETRIES} failed for '{video.title}': "
+                                    f"{reason} Retrying…"
+                                )
 
                     if not downloaded:
                         continue
@@ -193,7 +273,10 @@ class NYT:
                     try:
                         title, thumbnail_url, publish_date = self.fetch_video_metadata(video.video_id)
                     except Exception as exc:
-                        logger.warning(f"Could not fetch metadata for '{video.video_id}': {exc}")
+                        logger.warning(
+                            f"Could not fetch metadata for '{video.title}' ({video.video_id}): "
+                            f"{self._explain_ydl_error(exc)}"
+                        )
                         continue
 
                     record = Videos(
@@ -239,7 +322,9 @@ class NYT:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
         except Exception as exc:
-            logger.warning(f"Channel lookup failed for '{channel_handle}': {exc}")
+            logger.warning(
+                f"Channel lookup failed for '@{channel_handle}': {self._explain_ydl_error(exc)}"
+            )
             return None
 
         if not info:
@@ -291,7 +376,7 @@ class NYT:
                 info = ydl.extract_info(url, download=False)
         except Exception as exc:
             raise RuntimeError(
-                f"Could not fetch video list for '@{channel_handle}': {exc}"
+                f"Could not fetch video list for '@{channel_handle}': {self._explain_ydl_error(exc)}"
             ) from exc
 
         entries = [e for e in (info.get("entries") or []) if e and e.get("id")]
@@ -327,7 +412,7 @@ class NYT:
                 update_progress(video_id, {"title": title, "status": "error"})
 
         opts = {
-            **self._ydl_base_opts,
+            **self._ydl_base_opts(),
             "outtmpl":           str(Path(prefix_directory) / "%(uploader)s" / "%(title)s.%(ext)s"),
             "writesubtitles":    True,
             "subtitleslangs":    ["all"],
@@ -367,7 +452,7 @@ class NYT:
 
     def fetch_video_metadata(self, video_id: str) -> tuple[str, str, datetime]:
         url = f"{self.YOUTUBE_BASE}/watch?v={video_id}"
-        with yt_dlp.YoutubeDL({"quiet": True, "format": "best[ext=mp4]/best"}) as ydl:
+        with yt_dlp.YoutubeDL(self._ydl_common_opts()) as ydl:
             info = ydl.extract_info(url, download=False)
         return (
             info.get("title", video_id),

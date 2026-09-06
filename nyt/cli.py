@@ -20,7 +20,7 @@ from nyt.src.logger.logger import InterceptHandler
 
 # Models
 from nyt.src.config import ConfigManager
-from nyt.src.utils import check_assets, download_assets, create_assets_prefix
+from nyt.src.utils import check_assets, download_assets, create_assets_prefix, check_deno, install_deno
 
 # Config manager
 config_manager = ConfigManager()
@@ -252,6 +252,8 @@ def run() -> None:
     create_assets_prefix()
     if not check_assets():
         download_assets()
+    if not check_deno():
+        install_deno()
 
     # Parse and dispatch
     parser = build_parser()

@@ -489,17 +489,14 @@ async def get_video_formats_route(video_id: str):
     config = ConfigManager().load_config()
     video  = classes.database_handler.get_video_from_videos(video_id=video_id)
 
-    if video and video.is_downloaded and video.download_path:
-        if not config.TRANSCODING_ENABLED:
-            return JSONResponse({"status_code": 403, "message": "Transcoding is disabled"}, status_code=403)
-        formats = classes.videos_handler.get_local_formats(video_id)
-        return JSONResponse({"status_code": 200, "formats": formats, "is_local": True})
+    if not video or not video.is_downloaded or not video.download_path:
+        return JSONResponse({"status_code": 404, "message": "Video is not downloaded"}, status_code=404)
 
-    if not config.QUALITY_SELECTION_ENABLED:
-        return JSONResponse({"status_code": 403, "message": "Quality selection is disabled"}, status_code=403)
+    if not config.TRANSCODING_ENABLED:
+        return JSONResponse({"status_code": 403, "message": "Transcoding is disabled"}, status_code=403)
 
-    formats = classes.videos_handler.get_formats(video_id)
-    return JSONResponse({"status_code": 200, "formats": formats, "is_local": False})
+    formats = classes.videos_handler.get_local_formats(video_id)
+    return JSONResponse({"status_code": 200, "formats": formats, "is_local": True})
 
 
 @api.get(f"{ROOT}/videos/{{video_id}}", status_code=200, response_class=StreamingResponse)
@@ -533,7 +530,6 @@ async def get_settings_route():
             "storage_used_bytes":        used_bytes,
             "auth_enabled":              bool(config.ADMIN_USERNAME),
             "admin_username":            config.ADMIN_USERNAME,
-            "quality_selection_enabled": config.QUALITY_SELECTION_ENABLED,
             "transcoding_enabled":       config.TRANSCODING_ENABLED,
             "auto_delete_watched_days":  config.AUTO_DELETE_WATCHED_DAYS,
             "auto_update_enabled":       config.AUTO_UPDATE_ENABLED,
@@ -545,7 +541,6 @@ class GeneralSettingsBody(BaseModel):
     watch_delay_minutes: int
     videos_directory: str
     storage_limit_gb: float | None = None
-    quality_selection_enabled: bool | None = None
     transcoding_enabled: bool | None = None
     auto_delete_watched_days: int | None = None
     auto_update_enabled: bool | None = None
@@ -560,7 +555,6 @@ async def update_general_settings_route(body: GeneralSettingsBody):
         watch_delay_minutes=body.watch_delay_minutes,
         videos_directory=body.videos_directory.strip() or None,
         storage_limit_gb=max(0.0, body.storage_limit_gb) if body.storage_limit_gb is not None else None,
-        quality_selection_enabled=body.quality_selection_enabled,
         transcoding_enabled=body.transcoding_enabled,
         auto_delete_watched_days=body.auto_delete_watched_days,
         auto_update_enabled=body.auto_update_enabled,

@@ -51,6 +51,7 @@
 
 - Python 3.11 or newer
 - FFmpeg (optional — only needed for quality variant transcoding)
+- [Deno](https://docs.deno.com/runtime/getting_started/installation/) — required by yt-dlp to solve YouTube's JS signature challenges; `nyt` auto-installs it into `~/.nyt/deno/` on first run if it's not already on your `PATH`. Without it, YouTube extraction may intermittently fail with "Sign in to confirm you're not a bot" or "Requested format is not available" errors.
 
 ## Docker
 
@@ -59,7 +60,7 @@
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/ramsy0dev/nyt.git
+git clone https://github.com/thefr0gg/nyt.git
 cd nyt
 ```
 
@@ -136,7 +137,7 @@ After changing `docker-compose.yml`, run `docker compose up -d` to apply.
 ## Install (without Docker)
 
 ```bash
-pip install git+https://github.com/ramsy0dev/nyt.git
+pip install git+https://github.com/thefr0gg/nyt.git
 ```
 
 The config file, database, and directory structure under `~/.nyt/` are created automatically on first run.
